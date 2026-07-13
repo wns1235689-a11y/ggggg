@@ -10,13 +10,14 @@
 """
 from __future__ import annotations
 import sys, json, csv, os
-from sim import sampler, config as C
+from sim import sampler, respondent, backends, config as C
 
 OUT = os.path.join(os.path.dirname(__file__), "out")
 
 
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else C.DEFAULT_N
+    backend_name = sys.argv[2] if len(sys.argv) > 2 else "mock"
     os.makedirs(OUT, exist_ok=True)
     pool = sampler.build_pool(n)
 
@@ -41,8 +42,17 @@ def main():
     with open(os.path.join(OUT, "summary.json"), "w") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
+    # ── S4: 순차노출 응답생성 (pluggable backend) ──────────────────────
+    backend = backends.get_backend(backend_name)
+    responses = respondent.run_survey(pool, backend)
+    with open(os.path.join(OUT, "responses.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(responses[0].keys()))
+        w.writeheader()
+        w.writerows(responses)
+
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    print(f"\n[out] personas.csv / latents.csv / summary.json  (N={n}, seed={C.GLOBAL_SEED})")
+    print(f"\n[out] personas.csv / latents.csv / summary.json / responses.csv"
+          f"  (N={n}, backend={backend.name}, seed={C.GLOBAL_SEED})")
 
 
 if __name__ == "__main__":
