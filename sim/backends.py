@@ -209,27 +209,91 @@ class ClaudeBackend(Backend):
             "이 성향을 응답에 자연스럽게 반영하되 과장하지 마라."
         )
 
-    def _vs_call(self, system: str, user: str, options: list[str]) -> str:
-        """Verbalized Sampling: 모델이 응답분포를 언어화 → 표집. (실 API 호출)"""
+    def _exposure(self, ledger: dict) -> str:
+        """순차노출 게이팅: 컨셉/가격은 ledger 플래그가 켜졌을 때만 프롬프트에 노출."""
+        parts = []
+        if ledger.get("concept"):
+            parts.append("[지금 본 컨셉] " + CONCEPT_CARD)
+        if ledger.get("price"):
+            parts.append("[가격이 공개됨] 5,900 / 6,900 / 7,500 / 8,500원")
+        return "\n".join(parts)
+
+    def _vs(self, persona, user: str, options: list[str], rng_seed=None) -> dict:
+        """Verbalized Sampling: 모델이 응답분포를 언어화 → 표집. returns {choice, why, dist}."""
         self._require()
-        schema = ("다음 JSON만 출력: {\"dist\": {옵션:확률...}, \"choice\": 선택옵션, "
-                  "\"why\": \"한 문장\"}. 확률 합=1.")
+        schema = ('아래 JSON만 출력: {"dist": {"<옵션>": <확률>, ...}, "choice": "<선택 옵션>", '
+                  '"why": "<한 문장 이유(그 사람 말투)>"} · dist 확률 합=1 · choice는 dist에서 표집한 값.')
         msg = self._client.messages.create(
-            model=self.model, max_tokens=400,
-            system=system,
-            messages=[{"role": "user", "content": f"{user}\n\n옵션: {options}\n{schema}"}],
+            model=self.model, max_tokens=500, system=user["system"],
+            messages=[{"role": "user",
+                       "content": f"{user['body']}\n\n선택지: {options}\n{schema}"}],
         )
         txt = msg.content[0].text
         try:
             data = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
-            return data.get("choice", options[0])
+            ch = data.get("choice")
+            return {"choice": ch if ch in options else options[0],
+                    "why": data.get("why", ""), "dist": data.get("dist", {})}
         except Exception:
-            return options[0]
+            return {"choice": options[0], "why": "", "dist": {}}
 
-    # 실 구현은 _vs_call을 각 문항 프롬프트로 감싼다(순차노출 ledger를 user에 반영).
-    # SSR 경로(자유서술→임베딩 유사도)는 임베딩 모델 확보 시 rate_likert에 추가.
+    def _ask(self, persona, question: str, options: list[str], ledger: dict) -> dict:
+        body = (self._exposure(ledger) + "\n\n" + question).strip()
+        return self._vs(persona, {"system": self._system(persona), "body": body}, options)
+
     def rate_likert(self, persona, item, ledger):
-        raise NotImplementedError("ClaudeBackend.rate_likert — 실 API 배선 지점(다음 증분)")
+        q = ("이 제품의 첫인상을 1~5점으로. (1=전혀 안 끌린다 ... 5=매우 끌린다) "
+             "회의적 실제 소비자로서, 마찰도 감안해 표집하라.")
+        r = self._ask(persona, q, ["1", "2", "3", "4", "5"], ledger)
+        try:
+            return int(r["choice"])
+        except Exception:
+            return 3
+
+    def choose(self, persona, item, options, ledger):
+        Q = {
+            "A1": "팟타이를 먹어본 경험은? (아직 아무 제품도 보지 않은 상태에서 답하라)",
+            "A2": "동남아 음식을 지금보다 자주 먹지 않는 '가장 큰' 이유 하나는? (아직 제품 미노출)",
+            "B3": "이 제품 구매를 가장 망설이게 하는 것 하나는?",
+            "C1": "이런 팟타이가 먹고 싶을 때 지금 당신은 주로?",
+            "C2": "이 냉동 완제품이 나온다면 기존 방식 '대신' 시도해 보겠는가?",
+            "E1": "다음 두 소개 문구 중 이 제품을 더 사고 싶게 만드는 쪽은?\n"
+                  f"(가) {C.E1_HEADLINES['가']['paraphrase']}\n(나) {C.E1_HEADLINES['나']['paraphrase']}",
+        }.get(item, "다음 중 하나를 고르라.")
+        return self._ask(persona, Q, options, ledger)["choice"]
+
+    def choose_grid_rank(self, persona, rows, ledger):
+        q = ("이 제품을 사고 싶게 만드는 이유의 1순위와 2순위를 하나씩 고르라. "
+             "'사고 싶은 이유 없음'을 1순위로 고르면 2순위는 비운다.")
+        r1 = self._ask(persona, q + " (1순위)", rows, ledger)
+        first = r1["choice"]
+        if first == "사고 싶은 이유 없음":
+            return first, None
+        rest = [x for x in rows if x != first]
+        r2 = self._ask(persona, q + f" (1순위='{first}'; 2순위, 없으면 '없음')",
+                       rest + ["없음"], ledger)
+        second = r2["choice"]
+        return first, (None if second == "없음" else second)
+
+    def accept_price(self, persona, price, ledger):
+        q = (f"이 제품이 {price:,}원이라면 사겠는가? "
+             "사람은 보통 한 임계 이하 가격만 산다(단조). 회의적으로 판단하라.")
+        return self._ask(persona, q, ["산다", "안 산다"], ledger)["choice"] == "산다"
+
+    def freetext(self, persona, item, ledger):
+        if item == "E2":
+            r = self._ask(persona, "방금 고른 문구가 더 끌린 이유를 한 단어~한 문장으로(선택).",
+                          ["작성", "공란"], ledger)
+            return r.get("why", "") if r["choice"] == "작성" else ""
+        return ""
+
+
+# 컨셉카드(동결 사실만) — 순차노출에서 2단계(컨셉) 진입 시에만 프롬프트에 노출
+CONCEPT_CARD = (
+    "태국 볶음쌀국수 '팟타이'를 한국 재료로 재해석한 냉동 간편식. 새콤한 맛을 내는 "
+    "타마린드 대신 매실청을 써서 고수·피시소스 같은 향 부담을 덜었습니다. 냉동 쌀면 + "
+    "매실청 소스 + 국산 새우·숙주·부추, 1인분(300g), 5분 완조리."
+)
 
 
 def get_backend(name: str = "mock") -> Backend:
