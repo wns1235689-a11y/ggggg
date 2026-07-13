@@ -28,6 +28,10 @@ def _sample_latents(rng, channel: str, s4_freq: str) -> dict:
     for name, (mu, sd) in C.LATENT_SPECS.items():
         v = float(rng.normal(mu, sd))
         lat[name] = float(np.clip(v, 0.0, 1.0))
+    # 향기피 ↔ 매실청 친숙도 음(-) 완충 상관 (사전조사 권장):
+    # 매실청 친숙도 높을수록 향 부담을 덜 느낌 → spice_aversion 하향
+    lat["spice_aversion"] = float(np.clip(
+        lat["spice_aversion"] - 0.20 * (lat["plum_familiarity"] - 0.5), 0.0, 1.0))
     # S4 관여도 재보정: 고빈도 → involvement +
     bump = {"0회": -0.15, "1-2회": 0.0, "3-5회": 0.10, "6+회": 0.20}[s4_freq]
     lat["involvement"] = float(np.clip(lat["involvement"] + bump, 0.0, 1.0))
