@@ -1,0 +1,4 @@
+numpy>=2.0
+scipy>=1.13
+pandas>=2.0
+# S4(실 LLM 백엔드) 활성화 시 추가: anthropic>=0.40 (또는 임베딩 모델)
