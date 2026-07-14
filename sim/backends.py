@@ -71,6 +71,7 @@ class MockBackend(Backend):
         score = (base
                  + 1.0 * (L["involvement"] - 0.5)
                  + 0.7 * (L["plum_familiarity"] - 0.5)
+                 + 0.5 * (L["quality_trust"] - 0.5)       # KREI 품질만족 → 첫인상↑
                  - 0.9 * (L["skepticism"] - 0.5)
                  - 0.7 * (L["spice_aversion"] - 0.5)
                  + L["channel_favor_offset"])
@@ -102,20 +103,25 @@ class MockBackend(Backend):
                           0.5 * (1 - sa), 0.5 * inv]) + 0.1
         elif item == "B3":
             # [맛상상 진짜팟타이 냉동품질 가격 양 관심없음 없음]
-            w = np.array([0.8, 0.7 * (1 - L["plum_familiarity"]), 0.7 * L["skepticism"],
-                          0.9 * L["price_sensitivity"], 0.5, 0.6 * (1 - L["involvement"]),
-                          0.7 * (1 - L["skepticism"])]) + 0.1
+            # Low Rating 테마 방향: VALUE_NEG(가격) 최상위, AUTH_NEG(진짜팟타이), FRESHNESS(냉동품질), PORTION(양)
+            w = np.array([0.75,
+                          0.55 + 0.6 * L["authenticity_goal"],   # 진짜팟타이 아님 (정통성 기대↑)
+                          0.75 * (1 - L["quality_trust"]),        # 냉동품질 불신 (FRESHNESS)
+                          0.9 * L["price_sensitivity"],           # 가격 걱정 (VALUE_NEG 최상위)
+                          0.55,                                   # 양 부족 (PORTION_NEG)
+                          0.6 * (1 - L["involvement"]),           # 관심없음
+                          0.65 * (1 - L["skepticism"])]) + 0.1    # 없음
         elif item == "C1":
             # [직접만듦 냉동밀키트 배달외식 안먹음 이런맛안찾음]
             solo = ledger.get("S3_residence") in ("1인가구", "기숙사")
             w = np.array([0.5, 1.2 if solo else 0.7, 0.9, 0.4,
                           0.8 * (1 - L["involvement"])]) + 0.1
         elif item == "C2":
-            # [꼭산다 가끔산다 기존유지] — 게이트B: 관습대안 우위 → 기존유지 질량↑
+            # [꼭산다 가끔산다 기존유지] — 게이트B: 관습대안 우위 → 기존유지 질량↑; quality_trust 반영
             b1 = ledger.get("B1", 3)
-            w = np.array([_mid(C.ANCHOR_PRIORS["C2"]["꼭산다"]) * (b1 / 3.0),
+            w = np.array([_mid(C.ANCHOR_PRIORS["C2"]["꼭산다"]) * (b1 / 3.0) * (0.6 + 0.8 * L["quality_trust"]),
                           _mid(C.ANCHOR_PRIORS["C2"]["가끔산다"]),
-                          0.45 + 0.3 * L["skepticism"]])
+                          0.45 + 0.3 * L["skepticism"] + 0.3 * (1 - L["quality_trust"])])
         elif item == "E1":
             # 게이트B 방향프라이어 P(T2)≈0.53. mock은 위치편향 없음 → 제시순서 무시하고
             # '정체성' 기준 canonical 표집(스왑해도 동일 축 → 정상적으로 flip 안 함).
@@ -134,16 +140,16 @@ class MockBackend(Backend):
 
     def choose_grid_rank(self, persona, rows, ledger):
         # B2: [5분완조리 외식대비가성비 국산재료 매실청새콤 향신료부담없음 이유없음]
+        # KREI 실측 앵커(구입이유): 가성비 0.32·간편 0.32·맛 0.17 → C계열 stated 우세.
+        # A계열은 제품특정(매실청·향기피 성향)으로만 상승. gate-B A축 인위 부스트 제거(E1 관할).
         L = persona.latent
         rng = _rng(persona, "B2")
-        A_boost_maesil = 0.6 * L["plum_familiarity"]
-        A_boost_spice = 0.8 * L["spice_aversion"]
         w = np.array([
-            0.8 * L["involvement"],                 # 5분완조리 (C) — primacy 억제(계수 낮게)
-            0.7 * L["price_sensitivity"],           # 가성비 (C)
-            0.6,                                    # 국산재료 (C)
-            0.7 + A_boost_maesil,                   # 매실청새콤 (A) — 게이트B A≥C 방향
-            0.6 + A_boost_spice,                    # 향신료부담없음 (A)
+            0.95 + 0.4 * L["involvement"],          # 5분완조리 (C·간편, KREI 0.32)
+            1.00 + 0.5 * L["price_sensitivity"],    # 가성비 (C·비용, KREI 최상위 0.32)
+            0.55 + 0.3 * L["quality_trust"],        # 국산재료 (C·품질/맛, KREI 0.17)
+            0.45 + 0.6 * L["plum_familiarity"],     # 매실청새콤 (A·제품특정)
+            0.35 + 0.8 * L["spice_aversion"],       # 향신료부담없음 (A·제품특정)
             0.25 * (1 - L["involvement"]),          # 이유없음
         ]) + 0.05
         w = w / w.sum()

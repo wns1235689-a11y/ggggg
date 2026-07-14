@@ -56,6 +56,29 @@ GROUNDING_SOURCES = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# 1.6 KREI 근거 워크북 실측 앵커 (코덱스 근거, 2026-07-14) — 정식 재분석
+#     '게이트C 적격률로 대입 금지, 외부 앵커로만'(원 워크북). 최종 중심값은 인간 앵커로 보정.
+# ─────────────────────────────────────────────────────────────────────────
+KREI_ANCHORS = {
+    "note": "KREI 2025 식품소비행태 재분석. 25-39 월1회+ HMR 주구입자 N=378(가구가중).",
+    # HMR 구입 이유 1순위(가중비율) → B2 'C계열' stated 앵커 (제품특정 A계열은 별도)
+    "hmr_reason": {"비용절감_가성비": 0.324, "시간없음": 0.180, "맛있어서": 0.168,
+                   "번거로움": 0.142, "조리못함": 0.096, "다양함": 0.052, "보관성": 0.031},
+    "satisfaction": {"품질만족": 0.652, "가격만족": 0.558, "1인_품질만족": 0.716},
+    "concern": {"포장안전우려": 0.173, "첨가물우려": 0.239},
+    "dining_out_median_krw": {"전체": 35000, "1인": 20000, "2인+": 50000},  # 외식 대비 → D1 맥락
+    "single_hh_in_hmr_target": 0.484,  # HMR 주구입자 중 1인가구(모집단 0.20과 구분; 스크린 후 상향 방향)
+    "online_procure": 0.98, "review_influence": 0.66,
+    # Official Findings (농식품부 N=1633 / KREI 비이용가구) → B3·C2 맥락
+    "official": {"구입시_품질맛중시": 0.257, "구입시_가격중시": 0.215, "비이용_가격비쌈": 0.351,
+                 "비구매_품질의심": 0.156, "비구매_안전우려": 0.135, "비구매_가족직접조리": 0.133},
+    # Low Rating Themes(직접 캡처 저평점) 총언급 → B3 마찰 방향
+    "low_rating_theme": {"VALUE_NEG": 14, "FRESHNESS": 13, "REPURCHASE_NEG": 13,
+                         "AUTH_NEG": 10, "PORTION_NEG": 10, "CONVENIENCE_NEG": 7, "FLAVOR_WEAK": 7},
+    "source": "KREI 2025 식품소비행태조사·농식품부 2025(N=1633)·KREI 2024 비이용가구·직접 캡처 저평점 코딩",
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # 2. S1–S5 조건부 확률표 (CPT) — 결합분포 = Bayes-net 인수분해
 #    독립표집 금지. 상관을 CPT로 명시 보존.
 #    [실측] = 사전조사 grounding, [근사] = 실측 부재 도출. 게이트A 0% 하향앵커는 A2 별도.
@@ -127,7 +150,9 @@ LATENT_SPECS = {
     "price_sensitivity":(0.55, 0.22),
     "verbosity":       (0.50, 0.20),   # E1 verbosity 편향 진단용
     "attentiveness":   (0.80, 0.18),   # 낮을수록 B4 실패·직진·speeder
-    "involvement":     (0.50, 0.22),   # S4에서 재보정(고빈도→+)
+    "involvement":     (0.50, 0.22),   # S4에서 재보정(고빈도→+); convenience_orientation 프록시
+    "quality_trust":   (0.55, 0.22),   # 냉동 품질 신뢰 [실측: KREI 품질만족 0.65·가격만족 0.56]
+    "authenticity_goal":(0.45, 0.25),  # 정통성 기대 [워크북 I014: 높을수록 '진짜 팟타이 아님' 우려↑]
 }
 # 채널 호의편향 오프셋(B1 리커트 가산)  [운영] — §3-4 플래그 발동 점검용
 CHANNEL_FAVOR_OFFSET = {"blind": 0.0, "relay": 0.50, "student": 0.30}
@@ -182,8 +207,11 @@ GATE_B_INPUT_PRIORS = {
     "E1_P_T2": {"center": 0.53, "concentration_low": True,  # 약프라이어, 넓은 분포
         "keep_mass": ["가(T1)", "③비슷", "④둘다아님"],     # 만장일치 T2 붕괴 금지
         "cite": False, "label": "🔴 방향만; sim E1 출력은 인용금지(앵커 동어반복+verbosity 교락)"},
-    "B2_A_ge_C": {"direction": "A계열 ≥ C계열", "suppress_primacy": "5분완조리",
-        "cite": False, "label": "🔴 방향만; 항목매핑 느슨, 크기 불신"},
+    # 교정(2026-07-14): gate-B A축 승리는 E1(메시지) 관할이지 B2(진술 이유)가 아님.
+    # KREI 실측 + 라이브 데모 모두 진술 B2는 C계열(가성비·간편) 지배가 정상 → B2는 KREI 앵커.
+    "B2_reasons": {"stated_anchor": "KREI: 가성비 0.32·간편(시간+번거로움) 0.32·맛 0.17 → C계열 우세",
+        "A계열_via": "매실청·향기피 persona 성향(gate-B A축은 E1 관할)",
+        "cite": False, "label": "🔴 stated 이유; gate-B 행동 A축 vs 진술 C축 = 웨지(구성갭 findings)"},
     "conventional_alt": {"direction": "C0(저가·간편 관습품) > 컨셉 arm",
         "effect": "C1 관습대안·C2 '기존유지' 질량 상향", "cite": True,
         "label": "설계감도(앵커 직교) — 인용가능"},
