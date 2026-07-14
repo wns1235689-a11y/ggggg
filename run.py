@@ -10,7 +10,7 @@
 """
 from __future__ import annotations
 import sys, json, csv, os
-from sim import sampler, respondent, backends, config as C
+from sim import sampler, respondent, backends, aggregate, report, config as C
 
 OUT = os.path.join(os.path.dirname(__file__), "out")
 
@@ -50,8 +50,17 @@ def main():
         w.writeheader()
         w.writerows(responses)
 
+    # ── S7 §3 집계 → S8 이중용도 리포트 → S9 정직성 린터 ────────────────
+    agg = aggregate.aggregate(responses)
+    with open(os.path.join(OUT, "aggregate.json"), "w") as f:
+        json.dump(agg, f, ensure_ascii=False, indent=2)
+    md, lint = report.build_report(agg, n, backend.name)
+    with open(os.path.join(OUT, "report_9_4.md"), "w") as f:
+        f.write(md)
+
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    print(f"\n[out] personas.csv / latents.csv / summary.json / responses.csv"
+    print(f"\n[린터] {'✅ 통과' if lint['pass'] else '❌ 위반 ' + str(lint['violations'])}")
+    print(f"[out] personas / latents / summary / responses.csv / aggregate.json / report_9_4.md"
           f"  (N={n}, backend={backend.name}, seed={C.GLOBAL_SEED})")
 
 

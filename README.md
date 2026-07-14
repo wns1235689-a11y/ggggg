@@ -8,16 +8,29 @@
 - `docs/source/게이트C_파일럿프로토콜.md` — 파일럿 실행 프로토콜.
 
 ## 현재 상태
-**구축 착수(v0.3).** 방향 확정: 단일 산출물=50~100명 시뮬, 게이트B 실측을 입력 프라이어 앵커로 채택, E1 균등화 패러프레이즈, N5 스팟체크 유지.
+**파이프라인 S0→S9 완성·검증(v0.3).** 단일 산출물=50~100명 시뮬, 게이트B 실측을 입력 프라이어 앵커로 채택, E1 균등화 패러프레이즈, N5 스팟체크 유지.
 
-- ✅ **S1–S3 구현·검증 완료** — 채널 조건부 결합분포 표집 → 잠재특성 → 스크리닝. `python3 run.py 100`
-- ⬜ S4 (unprimed 순차노출 + SSR/VS 응답생성, pluggable LLM 백엔드) — 다음 증분
-- ⬜ S6~S9 (행동노이즈·§3 집계·이중용도 A/B·정직성 린터)
+- ✅ **S1–S3** 채널 조건부 결합분포 표집 → 잠재특성 → 스크리닝 (통계청·KREI 실측 grounding)
+- ✅ **S4** unprimed 순차노출 상태기계 + SSR/VS 응답생성 (mock 검증 + ClaudeBackend 표준코드)
+- ✅ **S6–S9** 행동노이즈 주입 · §3 잠금집계 · 이중용도 A/B 산출 · 정직성 린터
 
 ```
-sim/config.py   앵커 프라이어·게이트B 입력앵커·§3 규칙·E1 패러프레이즈
-sim/sampler.py  S1–S3 (결합분포·잠재특성·스크리닝)
-run.py          오케스트레이터 → out/personas.csv, latents.csv, summary.json
+# 오프라인(mock) — 즉시 실행:
+python3 run.py 100 mock
+# 실 LLM(현실성) — 키 설정 후:
+ANTHROPIC_API_KEY=... python3 run.py 100 claude
+```
+산출: `out/responses.csv`(Forms 동형) · `aggregate.json` · **`report_9_4.md`**(이중용도 A/B + 린터)
+
+```
+sim/config.py     실측 앵커·게이트B 입력앵커·§3 규칙·E1 패러프레이즈·출처
+sim/sampler.py    S1–S3 결합분포 표집·잠재특성·스크리닝
+sim/backends.py   MockBackend(오프라인) + ClaudeBackend(실 LLM VS)
+sim/respondent.py S4 순차노출 상태기계(unprimed 봉인·E1 스왑·노이즈)
+sim/aggregate.py  S7 §3 잠금집계(A/B 버킷 분리)
+sim/report.py     S8 §9.4 5블록 이중용도 리포트
+sim/linter.py     S9 정직성 린터(A/B 계약·🔴 등급·금지어)
+run.py            오케스트레이터
 ```
 
 ## 핵심 원칙
