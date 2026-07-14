@@ -40,6 +40,7 @@ def ingest_live(agent_responses: list[dict], n: int = 100) -> list[dict]:
             "_is_target": p.is_target, "_is_student": p.is_student_seg, "_screenout": p.screenout_reason,
             "_flag_b4_pass": b4_pass, "_flag_straightline": straight,
             "_flag_d1_nonmonotone": nonmono, "_flag_e1_swap_flip": False, "_flag_unprimed_ok": True,
+            "_flag_structural_inconsistency": False,  # 라이브는 프롬프트 힌트로만(Q017 코드주입 없음)
             "_backend": "claude-live", "_B1_why": a.get("B1_why", ""), "_B2_why": a.get("B2_why", ""),
         })
     return out
