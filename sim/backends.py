@@ -243,11 +243,12 @@ class ClaudeBackend(Backend):
             parts.append("[가격이 공개됨] 5,900 / 6,900 / 7,500 / 8,500원")
         return "\n".join(parts)
 
-    def _vs(self, persona, user: str, options: list[str], rng_seed=None) -> dict:
-        """Verbalized Sampling: 모델이 응답분포를 언어화 → 표집. returns {choice, why, dist}."""
+    def _vs(self, persona, user: str, options: list[str], seed_item: str = "") -> dict:
+        """Verbalized Sampling: 모델이 응답분포를 언어화 → **하니스가 표집**(모델 choice 불신).
+        분산붕괴 방어의 핵심 — 단일선택을 시키면 최빈답으로 수렴하므로 dist를 받아 직접 표집."""
         self._require()
-        schema = ('아래 JSON만 출력: {"dist": {"<옵션>": <확률>, ...}, "choice": "<선택 옵션>", '
-                  '"why": "<한 문장 이유(그 사람 말투)>"} · dist 확률 합=1 · choice는 dist에서 표집한 값.')
+        schema = ('아래 JSON만: {"dist": {"<옵션>": <0~10 정수, 비슷한 사람 10명 중 이 보기를 고를 인원>}, '
+                  '"why": "<한 문장(그 사람 말투)>"} · 한 명한테 몰아주지 말고 현실적 분포로.')
         msg = self._client.messages.create(
             model=self.model, max_tokens=500, system=user["system"],
             messages=[{"role": "user",
@@ -256,20 +257,25 @@ class ClaudeBackend(Backend):
         txt = msg.content[0].text
         try:
             data = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
-            ch = data.get("choice")
-            return {"choice": ch if ch in options else options[0],
-                    "why": data.get("why", ""), "dist": data.get("dist", {})}
+            dist = data.get("dist", {})
+            w = np.array([max(float(dist.get(o, 0)), 0.0) for o in options])
+            if w.sum() <= 0:
+                w = np.ones(len(options))
+            rng = np.random.default_rng([C.GLOBAL_SEED, persona.pid, zlib.crc32(seed_item.encode())])
+            ch = options[int(rng.choice(len(options), p=w / w.sum()))]  # 하니스가 표집
+            return {"choice": ch, "why": data.get("why", ""), "dist": dist}
         except Exception:
             return {"choice": options[0], "why": "", "dist": {}}
 
-    def _ask(self, persona, question: str, options: list[str], ledger: dict) -> dict:
+    def _ask(self, persona, question: str, options: list[str], ledger: dict, item: str = "") -> dict:
         body = (self._exposure(ledger) + "\n\n" + question).strip()
-        return self._vs(persona, {"system": self._system(persona), "body": body}, options)
+        return self._vs(persona, {"system": self._system(persona), "body": body}, options,
+                        seed_item=item or question[:24])
 
     def rate_likert(self, persona, item, ledger):
         q = ("이 제품의 첫인상을 1~5점으로. (1=전혀 안 끌린다 ... 5=매우 끌린다) "
-             "회의적 실제 소비자로서, 마찰도 감안해 표집하라.")
-        r = self._ask(persona, q, ["1", "2", "3", "4", "5"], ledger)
+             "회의적 실제 소비자로서, 마찰도 감안하라.")
+        r = self._ask(persona, q, ["1", "2", "3", "4", "5"], ledger, item="B1")
         try:
             return int(r["choice"])
         except Exception:
@@ -285,30 +291,30 @@ class ClaudeBackend(Backend):
             "E1": "다음 두 소개 문구 중 이 제품을 더 사고 싶게 만드는 쪽은?\n"
                   f"(가) {C.E1_HEADLINES['가']['paraphrase']}\n(나) {C.E1_HEADLINES['나']['paraphrase']}",
         }.get(item, "다음 중 하나를 고르라.")
-        return self._ask(persona, Q, options, ledger)["choice"]
+        return self._ask(persona, Q, options, ledger, item=item)["choice"]
 
     def choose_grid_rank(self, persona, rows, ledger):
         q = ("이 제품을 사고 싶게 만드는 이유의 1순위와 2순위를 하나씩 고르라. "
              "'사고 싶은 이유 없음'을 1순위로 고르면 2순위는 비운다.")
-        r1 = self._ask(persona, q + " (1순위)", rows, ledger)
+        r1 = self._ask(persona, q + " (1순위)", rows, ledger, item="B2_1")
         first = r1["choice"]
         if first == "사고 싶은 이유 없음":
             return first, None
         rest = [x for x in rows if x != first]
         r2 = self._ask(persona, q + f" (1순위='{first}'; 2순위, 없으면 '없음')",
-                       rest + ["없음"], ledger)
+                       rest + ["없음"], ledger, item="B2_2")
         second = r2["choice"]
         return first, (None if second == "없음" else second)
 
     def accept_price(self, persona, price, ledger):
         q = (f"이 제품이 {price:,}원이라면 사겠는가? "
              "사람은 보통 한 임계 이하 가격만 산다(단조). 회의적으로 판단하라.")
-        return self._ask(persona, q, ["산다", "안 산다"], ledger)["choice"] == "산다"
+        return self._ask(persona, q, ["산다", "안 산다"], ledger, item=f"D1_{price}")["choice"] == "산다"
 
     def freetext(self, persona, item, ledger):
         if item == "E2":
             r = self._ask(persona, "방금 고른 문구가 더 끌린 이유를 한 단어~한 문장으로(선택).",
-                          ["작성", "공란"], ledger)
+                          ["작성", "공란"], ledger, item="E2")
             return r.get("why", "") if r["choice"] == "작성" else ""
         return ""
 
