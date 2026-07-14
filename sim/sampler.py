@@ -23,18 +23,29 @@ def _choice(rng, options, probs):
     return options[int(rng.choice(len(options), p=p))]
 
 
-def _sample_latents(rng, channel: str, s4_freq: str) -> dict:
+def _clip(v):
+    return float(np.clip(v, 0.0, 1.0))
+
+
+def _sample_latents(rng, channel: str, s4_freq: str, residence: str) -> dict:
     lat = {}
     for name, (mu, sd) in C.LATENT_SPECS.items():
         v = float(rng.normal(mu, sd))
-        lat[name] = float(np.clip(v, 0.0, 1.0))
-    # 향기피 ↔ 매실청 친숙도 음(-) 완충 상관 (사전조사 권장):
-    # 매실청 친숙도 높을수록 향 부담을 덜 느낌 → spice_aversion 하향
-    lat["spice_aversion"] = float(np.clip(
-        lat["spice_aversion"] - 0.20 * (lat["plum_familiarity"] - 0.5), 0.0, 1.0))
-    # S4 관여도 재보정: 고빈도 → involvement +
+        lat[name] = _clip(v)
+    # 향기피 ↔ 매실청 친숙도 음(-) 완충 상관 (사전조사 권장)
+    lat["spice_aversion"] = _clip(lat["spice_aversion"] - 0.20 * (lat["plum_familiarity"] - 0.5))
+    # S4 관여도·카테고리빈도 재보정: 고빈도 → +
     bump = {"0회": -0.15, "1-2회": 0.0, "3-5회": 0.10, "6+회": 0.20}[s4_freq]
-    lat["involvement"] = float(np.clip(lat["involvement"] + bump, 0.0, 1.0))
+    lat["involvement"] = _clip(lat["involvement"] + bump)
+    lat["category_frequency"] = _clip(lat["category_frequency"] + bump)
+    # 워크북 상관: 낯선소스 장벽↔향기피(같은 방향), 1인가구→팬트리 제약↑(B008),
+    # 메시지 지향 = 향기피↑→T2 / 편의(관여)↑→T1
+    lat["sauce_barrier"] = _clip(lat["sauce_barrier"] + 0.3 * (lat["spice_aversion"] - 0.5))
+    if residence in ("1인가구", "기숙사"):
+        lat["pantry_constraint"] = _clip(lat["pantry_constraint"] + 0.20)
+    lat["message_orientation"] = _clip(
+        lat["message_orientation"] + 0.30 * (lat["spice_aversion"] - 0.5)
+        - 0.20 * (lat["involvement"] - 0.5))
     # 채널 호의 오프셋(리커트 가산 상수 + 개인노이즈)
     off = C.CHANNEL_FAVOR_OFFSET[channel]
     lat["channel_favor_offset"] = float(off + rng.normal(0, 0.1))
@@ -88,7 +99,7 @@ def sample_persona(pid: int) -> Persona:
 
     p = Persona(pid, channel, age, status, residence, freq, travel,
                 is_target, is_student_seg, screenout)
-    p.latent = _sample_latents(rng, channel, freq)
+    p.latent = _sample_latents(rng, channel, freq, residence)
     return p
 
 

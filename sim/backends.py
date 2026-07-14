@@ -66,12 +66,13 @@ class MockBackend(Backend):
     def rate_likert(self, persona, item, ledger):
         L = persona.latent
         a = C.ANCHOR_PRIORS["B1"]
-        base = _mid(a["mean"])
+        base = a["mean"][0] - 0.15   # recenter down(3.45): 유리한 표적 + 다변량 상방 상쇄
         # 관여도·매실청친숙도·호의(+), 회의도·향기피(-)
         score = (base
-                 + 1.0 * (L["involvement"] - 0.5)
-                 + 0.7 * (L["plum_familiarity"] - 0.5)
-                 + 0.5 * (L["quality_trust"] - 0.5)       # KREI 품질만족 → 첫인상↑
+                 + 0.85 * (L["involvement"] - 0.5)
+                 + 0.6 * (L["plum_familiarity"] - 0.5)
+                 + 0.45 * (L["quality_trust"] - 0.5)      # KREI 품질만족 → 첫인상↑
+                 + 0.3 * (L["novelty_seeking"] - 0.5)     # 신메뉴 탐색 → 첫인상↑
                  - 0.9 * (L["skepticism"] - 0.5)
                  - 0.7 * (L["spice_aversion"] - 0.5)
                  + L["channel_favor_offset"])
@@ -98,38 +99,50 @@ class MockBackend(Backend):
                 w[0] *= 1.4; w[3] *= 0.6           # 여행경험 → 경험·선호↑
         elif item == "A2":
             # [①향신료향 ②낯선소스 ③접근성 ④가격 ⑤단순비선호 ⑥잘먹음]
-            sa, price, inv = L["spice_aversion"], L["price_sensitivity"], L["involvement"]
-            w = np.array([1.2 * sa, 0.8 * sa, 0.6 * (1 - inv), 0.7 * price,
-                          0.5 * (1 - sa), 0.5 * inv]) + 0.1
+            # 워크북: 접근성(access_barrier)은 독립 잠재환경 변수 — 라이브 데모서 지배적
+            w = np.array([1.1 * L["spice_aversion"],                 # ① 향
+                          0.9 * L["sauce_barrier"],                   # ② 낯선소스
+                          1.0 * L["access_barrier"],                  # ③ 접근성
+                          0.7 * L["price_sensitivity"],               # ④ 가격
+                          0.5 * (1 - L["category_frequency"]),        # ⑤ 단순비선호
+                          0.6 * L["category_frequency"] * (1 - L["spice_aversion"])]) + 0.1  # ⑥ 잘먹음
         elif item == "B3":
             # [맛상상 진짜팟타이 냉동품질 가격 양 관심없음 없음]
             # Low Rating 테마 방향: VALUE_NEG(가격) 최상위, AUTH_NEG(진짜팟타이), FRESHNESS(냉동품질), PORTION(양)
-            w = np.array([0.75,
+            w = np.array([0.45 + 0.5 * L["sauce_barrier"],       # 맛 상상 안됨 (낯선 소스→상상 어려움)
                           0.55 + 0.6 * L["authenticity_goal"],   # 진짜팟타이 아님 (정통성 기대↑)
                           0.75 * (1 - L["quality_trust"]),        # 냉동품질 불신 (FRESHNESS)
                           0.9 * L["price_sensitivity"],           # 가격 걱정 (VALUE_NEG 최상위)
-                          0.55,                                   # 양 부족 (PORTION_NEG)
+                          0.3 + 0.7 * L["portion_expect"],        # 양 부족 (식사량 기대↑, B012)
                           0.6 * (1 - L["involvement"]),           # 관심없음
                           0.65 * (1 - L["skepticism"])]) + 0.1    # 없음
         elif item == "C1":
             # [직접만듦 냉동밀키트 배달외식 안먹음 이런맛안찾음]
             solo = ledger.get("S3_residence") in ("1인가구", "기숙사")
-            w = np.array([0.5, 1.2 if solo else 0.7, 0.9, 0.4,
-                          0.8 * (1 - L["involvement"])]) + 0.1
+            ab = L["access_barrier"]                            # 접근 장벽↑ → HMR 전환·안먹음
+            w = np.array([0.5 * (1 - ab),                       # 직접만듦
+                          (1.2 if solo else 0.7) + 0.5 * ab,    # 냉동밀키트 (접근장벽→HMR)
+                          0.9,                                   # 배달외식
+                          0.4 * ab,                              # 안먹음
+                          0.8 * (1 - L["involvement"])]) + 0.1   # 이런맛안찾음
         elif item == "C2":
-            # [꼭산다 가끔산다 기존유지] — 게이트B: 관습대안 우위 → 기존유지 질량↑; quality_trust 반영
+            # [꼭산다 가끔산다 기존유지] — trial_propensity·category_frequency(B015)·social_desirability
             b1 = ledger.get("B1", 3)
-            w = np.array([_mid(C.ANCHOR_PRIORS["C2"]["꼭산다"]) * (b1 / 3.0) * (0.6 + 0.8 * L["quality_trust"]),
-                          _mid(C.ANCHOR_PRIORS["C2"]["가끔산다"]),
-                          0.45 + 0.3 * L["skepticism"] + 0.3 * (1 - L["quality_trust"])])
+            w = np.array([
+                _mid(C.ANCHOR_PRIORS["C2"]["꼭산다"]) * (b1 / 3.0)
+                    * (0.5 + 0.9 * L["trial_propensity"]) * (0.8 + 0.4 * L["social_desirability"]),
+                _mid(C.ANCHOR_PRIORS["C2"]["가끔산다"]) * (0.8 + 0.5 * (1 - L["category_frequency"])),  # 저빈도→가끔만
+                0.45 + 0.3 * L["skepticism"] + 0.3 * (1 - L["quality_trust"])])
         elif item == "E1":
             # 게이트B 방향프라이어 P(T2)≈0.53. mock은 위치편향 없음 → 제시순서 무시하고
             # '정체성' 기준 canonical 표집(스왑해도 동일 축 → 정상적으로 flip 안 함).
             # 위치·verbosity 편향은 실 LLM(ClaudeBackend)에서만 발현. 감사 G2 스왑은 그때 작동.
+            # message_orientation(I027, 높을수록 T2)로 persona별 변조하되 gate-B center 유지
             gp = C.GATE_B_INPUT_PRIORS["E1_P_T2"]["center"]
+            mo = L["message_orientation"]
             canon = ["가(T1·완성도)", "나(T2·매실청)", "비슷", "둘 다 안 끌림"]
-            wmap = {"가": (1 - gp) + 0.4 * L["involvement"],
-                    "나": gp + 0.5 * L["spice_aversion"] + 0.3 * L["plum_familiarity"],
+            wmap = {"가": (1 - gp) * (1.0 + 0.7 * (1 - mo)),      # T1: 편의 지향(mo 낮음)
+                    "나": gp * (1.0 + 0.7 * mo) + 0.2 * L["plum_familiarity"],  # T2: 향완화 지향
                     "비슷": 0.16 + 0.20 * L["midpoint_bias"],
                     "둘": 0.15 * L["skepticism"]}
             w = np.array([wmap["가"], wmap["나"], wmap["비슷"], wmap["둘"]])
@@ -203,15 +216,21 @@ class ClaudeBackend(Backend):
     def _system(self, persona) -> str:
         # 회의적 실제 소비자 역할고정 + 잠재특성 주입 (게이트B 수치는 절대 미노출)
         L = persona.latent
+        lv = lambda x: '높음' if x > 0.6 else ('보통' if x > 0.4 else '낮음')
         return (
             "너는 설문 응답을 '평가'하는 조수가 아니라, 실제 한국 소비자 1명이다. "
             "제품을 옹호하지 말고 회의적으로 반응하라. 맛 상상의 어려움·진짜 팟타이 논쟁·"
-            "냉동 품질·가격 같은 마찰을 눈감지 마라.\n"
+            "냉동 품질·가격·양 같은 마찰을 눈감지 마라.\n"
             f"[너의 프로필] 연령 {persona.S1_age}, {persona.S2_status}, {persona.S3_residence}, "
             f"최근1개월 간편식 {persona.S4_freq}, 동남아여행 {persona.S5_travel}. "
-            f"향신료 부담 성향 {'높음' if L['spice_aversion']>0.55 else '보통' if L['spice_aversion']>0.35 else '낮음'}, "
-            f"매실청 친숙도 {'높음' if L['plum_familiarity']>0.6 else '보통'}, "
-            f"회의도 {'높음' if L['skepticism']>0.6 else '보통'}. "
+            f"향신료 부담 {lv(L['spice_aversion'])}, 매실청 친숙도 {lv(L['plum_familiarity'])}, "
+            f"회의도 {lv(L['skepticism'])}, 접근성 장벽(파는 곳/기회 부족) {lv(L['access_barrier'])}, "
+            f"정통성 기대 {lv(L['authenticity_goal'])}, 식사량 기대 {lv(L['portion_expect'])}, "
+            f"이 카테고리 평소 섭취빈도 {lv(L['category_frequency'])}.\n"
+            "[현실 힌트] 1인가구면 고수·대파 같은 고명을 따로 사두지 않는다. "
+            "표기 1~2인분이 성인 한 끼로는 적게 느껴질 수 있다. "
+            "이 음식을 평소 자주 먹지 않으면 맛이 괜찮아도 '가끔만' 재구매한다. "
+            "좋아하지만 안 사거나, 만족해도 가끔만 사는 현실적 불일치도 자연스럽다.\n"
             "이 성향을 응답에 자연스럽게 반영하되 과장하지 마라."
         )
 

@@ -154,7 +154,30 @@ LATENT_SPECS = {
     "involvement":     (0.50, 0.22),   # S4에서 재보정(고빈도→+); convenience_orientation 프록시
     "quality_trust":   (0.55, 0.22),   # 냉동 품질 신뢰 [실측: KREI 품질만족 0.65·가격만족 0.56]
     "authenticity_goal":(0.45, 0.25),  # 정통성 기대 [워크북 I014: 높을수록 '진짜 팟타이 아님' 우려↑]
+    # ── 워크북 Simulation Inputs 심층 흡수 (I0xx) ──
+    "access_barrier":  (0.50, 0.22),   # I010 접근 장벽 → A2③·C1 (라이브 데모서 접근성 지배 확인)
+    "sauce_barrier":   (0.40, 0.22),   # I009 낯선 소스 부담 → A2②·B3 (향기피와 상관)
+    "portion_expect":  (0.50, 0.22),   # I015 식사량 기대 → B3 양부족 (행동앵커 B012)
+    "pantry_constraint":(0.45, 0.24),  # I016 팬트리 제약 → B2·C1 (1인가구↑, 행동앵커 B008)
+    "category_frequency":(0.50, 0.24), # I026 카테고리 섭취빈도 → C2 재구매 상한 (행동앵커 B015)
+    "social_desirability":(0.45, 0.18),# I025 사회적 바람직성 → B1·C2·E1 소폭 상향
+    "message_orientation":(0.50, 0.25),# I027 편의(T1)↔향완화·매실청(T2) 선호 → E1
+    "novelty_seeking": (0.50, 0.22),   # I007 신메뉴 탐색 → B1 (행동앵커 B004: 팟타이=입문 메뉴)
+    "trial_propensity":(0.45, 0.22),   # I020 시도 의향 → C2
 }
+
+# 워크북 행동앵커(B001~B016) → 응답규칙 방향 (mock·ClaudeBackend 프롬프트 근거)
+BEHAVIOR_ANCHORS = {
+    "B004": "팟타이=입문 메뉴, 똠얌=향 모험 → 초심자는 팟타이 수용, novelty_seeking↑는 이색 탐색",
+    "B005": "전자레인지 표기시간 뒤 단단한 부분 → 체감 조리부담이 표기보다 큼(C2 감점)",
+    "B008": "1인가구는 고수·대파 별도구매 안 함 → pantry_constraint↑ → 선택 고명 생략",
+    "B011": "고수 뺀 제품에 향 원하는 이용자가 당귀 대체 → 향기피와 authenticity 반대방향",
+    "B012": "표기 1~2인분이 성인 1인 한 끼 → portion_expect↑는 양부족 우려",
+    "B015": "제품 평가 괜찮아도 카테고리 저빈도면 가끔만 재구매 → category_frequency가 C2 상한",
+    "note": "단일 사례는 빈도추정 아님 — 변수 방향·상호작용·응답문구 생성에만 사용(원 워크북).",
+}
+# 응답규칙 Q017 현실적 불일치: 좋아하지만 안 삼·관심 있지만 가격 거절·만족하지만 가끔 구매 허용
+STRUCTURAL_INCONSISTENCY_RATE = 0.12  # 일부 응답을 잠재효용과 의도적으로 불일치시켜 인간 이질성 재현
 # 채널 호의편향 오프셋(B1 리커트 가산)  [운영] — §3-4 플래그 발동 점검용
 CHANNEL_FAVOR_OFFSET = {"blind": 0.0, "relay": 0.50, "student": 0.30}
 

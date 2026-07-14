@@ -59,7 +59,7 @@ def respond(persona, backend) -> dict:
               "S3_residence": persona.S3_residence, "S4_freq": persona.S4_freq,
               "S5_travel": persona.S5_travel}
     flags = {"b4_pass": True, "straightline": False, "d1_nonmonotone": False,
-             "e1_swap_flip": False, "unprimed_ok": True}
+             "e1_swap_flip": False, "unprimed_ok": True, "structural_inconsistency": False}
 
     # ── Stage A: 사전태도 (unprimed — 컨셉/가격 미노출) ────────────────
     assert "concept" not in ledger and "price" not in ledger, "unprimed 위반"
@@ -105,6 +105,12 @@ def respond(persona, backend) -> dict:
     e1, flip = _e1_with_swap(backend, persona, ledger)
     flags["e1_swap_flip"] = flip
     e2 = backend.freetext(persona, "E2", ledger)
+
+    # Q017 현실적 불일치(워크북): 첫인상 좋아도 전환은 보수적 — '만족하지만 가끔·안 삼'
+    rngi = np.random.default_rng([C.GLOBAL_SEED, persona.pid, 17])
+    if rngi.random() < C.STRUCTURAL_INCONSISTENCY_RATE and b1 >= 4:
+        c2 = {"꼭 산다": "가끔 산다", "가끔 산다": "기존 방식 유지"}.get(c2, c2)
+        flags["structural_inconsistency"] = True
 
     # 직진응답(straightline) 플래그: 낮은 attentiveness
     rngs = np.random.default_rng([C.GLOBAL_SEED, persona.pid, 7])
