@@ -12,6 +12,7 @@ N, RUN_SEED = cfg["N"], cfg["RUN_SEED"]
 
 import sim.config as C
 C.GLOBAL_SEED = RUN_SEED                      # 신규 표본 시드로 전 파이프라인 재현
+CLEAN_MONOTONE_D1 = True                      # 사용자 요청: D1 비단조 노이즈 OFF(단조 사다리)
 from sim import ingest, respondent, aggregate
 
 # ── 풀텍스트 → 표준라벨 매핑(§3 규칙 호환) ──
@@ -93,8 +94,9 @@ def d1_from_curve(dist, pid, c2="가끔 산다"):
     rng = np.random.default_rng([C.GLOBAL_SEED, pid, 51])
     k = int(rng.choice(5, p=bins))
     seq = ["산다" if i < k else "안 산다" for i in range(4)]
-    # §3-15 비단조 소량 주입(임계 근처 상승꺾임) — 실측에도 존재하는 응답오류
-    if 0 < k < 4 and rng.random() < C.ANCHOR_PRIORS["D1_nonmonotone_rate"][1]:
+    # §3-15 비단조 소량 주입(임계 근처 상승꺾임) — 실측 응답오류 모사.
+    # CLEAN_MONOTONE_D1=True면 OFF(사용자 요청: 깔끔한 단조 사다리).
+    if not CLEAN_MONOTONE_D1 and 0 < k < 4 and rng.random() < C.ANCHOR_PRIORS["D1_nonmonotone_rate"][1]:
         seq[k - 1], seq[k] = "안 산다", "산다"
     return {D1P[i]: seq[i] for i in range(4)}
 
