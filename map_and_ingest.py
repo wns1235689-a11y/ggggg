@@ -69,15 +69,25 @@ def vs_sample(dist, options, pid, itemid, tilt=None):
 D1P = [5900, 6900, 7500, 8500]
 
 
-def d1_from_curve(dist, pid):
+def d1_c2_tilt(c2):
+    """전환의향(C2)으로 WTP 임계 k(구매 가격 수)를 기울여 D1과 정합.
+    수용곡선 '형태'(가격민감)는 유지하고, 임계가 어디 놓일지만 의향으로 조정."""
+    if c2 == "기존 방식 유지":   # 전환 안 함 → 낮은 WTP
+        return [1.4, 1.2, 1.0, 0.65, 0.45]
+    if c2 == "꼭 산다":          # 확정 구매 → 높은 WTP
+        return [0.5, 0.8, 1.1, 1.35, 1.5]
+    return [1.0, 1.0, 1.0, 1.0, 1.0]  # 가끔 산다: 중립
+
+
+def d1_from_curve(dist, pid, c2="가끔 산다"):
     """VS 수용인원(각 가격 0~10) → 단조 수용확률 → WTP 임계 분포에서 1개 표집.
-    임계 이하 가격만 '산다'(단조). §3-15 현실성 위해 소량 상승꺾임(비단조) 주입."""
+    임계 이하 가격만 '산다'(단조). C2로 임계 기울임. §3-15 소량 상승꺾임 주입."""
     p = [min(max(float(x) / 10.0, 0.0), 1.0) for x in dist]
     for i in range(1, 4):                     # 가격↑ → 수용 감소(단조) 강제
         p[i] = min(p[i], p[i - 1])
     # 임계구간 확률: 최저가부터 k개 가격을 '산다'(k=0..4)
     bins = [1 - p[0], p[0] - p[1], p[1] - p[2], p[2] - p[3], p[3]]
-    bins = [max(b, 0.0) for b in bins]
+    bins = [max(b, 0.0) * t for b, t in zip(bins, d1_c2_tilt(c2))]  # C2 정합 기울임
     s = sum(bins) or 1.0
     bins = [b / s for b in bins]
     rng = np.random.default_rng([C.GLOBAL_SEED, pid, 51])
@@ -87,6 +97,15 @@ def d1_from_curve(dist, pid):
     if 0 < k < 4 and rng.random() < C.ANCHOR_PRIORS["D1_nonmonotone_rate"][1]:
         seq[k - 1], seq[k] = "안 산다", "산다"
     return {D1P[i]: seq[i] for i in range(4)}
+
+
+# §3-4 채널 호의편향: relay(지인소개)·student 채널은 첫인상을 상방 진술(추천자 인지).
+# 설계가 '탐지'하려는 편향 → 라이브 경로 B1에도 반영해 실측 다채널 설문에 충실.
+CH_FAVOR = {"직장인 커뮤니티": 0.0, "지인 소개": 0.5, "대학생 커뮤니티": 0.3}
+
+
+def b1_channel_tilt(favor):
+    return [max(1 + 0.5 * favor * (s - 3), 0.05) for s in (1, 2, 3, 4, 5)]
 
 
 def c2_tilt(b1):
@@ -111,7 +130,8 @@ def main():
         d = dists.get(r["respondent_id"])
         if not d:
             continue
-        b1 = int(vs_sample(d["B1_dist"], [1, 2, 3, 4, 5], r["respondent_id"], 1))
+        b1 = int(vs_sample(d["B1_dist"], [1, 2, 3, 4, 5], r["respondent_id"], 1,
+                           tilt=b1_channel_tilt(CH_FAVOR.get(r["F1_channel"], 0.0))))
         r["B1"] = b1
         r["C1"] = vs_sample(d["C1_dist"], C1_OPT, r["respondent_id"], 2)
         c2 = vs_sample(d["C2_dist"], C2_OPT, r["respondent_id"], 3, tilt=c2_tilt(b1))
@@ -138,7 +158,7 @@ def main():
             if not d:
                 continue
             seq = d1_from_curve([d["buy_5900"], d["buy_6900"], d["buy_7500"], d["buy_8500"]],
-                                r["respondent_id"])
+                                r["respondent_id"], c2=r["C2"])
             # 극단 정합 가드(진술의향↔현시 WTP): 강한 구매의향인데 최저가에도 안 삼 → 최저가 수용,
             # 약한 의향인데 최고가까지 삼 → 최고가 제외. (중간대 가격저항은 자연스러워 보존)
             strong = seq.get(5900) == "안 산다" and (
