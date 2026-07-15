@@ -6,7 +6,7 @@ rows_final.json + e2_final.json → 서식없음 xlsx (시트명 '응답100').
 import json, openpyxl
 
 SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
-OUT = "/home/user/ggggg/exports/게이트C_합성시뮬응답_응답2차_v1.5.xlsx"
+OUT = "/home/user/ggggg/exports/게이트C_합성시뮬응답_v1.5_3차.xlsx"
 
 rows = json.load(open(f"{SP}/rows_final.json"))
 e2 = {d["pid"]: d["e2"] for d in json.load(open(f"{SP}/e2_final.json"))}
@@ -27,7 +27,7 @@ def seg(r):
 
 wb = openpyxl.Workbook()
 ws = wb.active
-ws.title = "응답2차"
+ws.title = "v1.5"
 ws.append(HDR)
 rows = sorted(rows, key=lambda r: r["respondent_id"])
 for r in rows:

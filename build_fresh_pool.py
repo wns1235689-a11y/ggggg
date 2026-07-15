@@ -13,7 +13,7 @@ SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratc
 # ── 신규 시드/표본크기(엔트로피 기반, 이후 기록으로 재현) ──
 seed_entropy = int.from_bytes(os.urandom(8), "big")
 meta_rng = random.Random(seed_entropy)
-N = meta_rng.randint(41, 51)
+N = meta_rng.randint(44, 53)
 RUN_SEED = meta_rng.randint(10_000_000, 99_999_999)
 
 import sim.config as C
