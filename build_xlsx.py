@@ -6,7 +6,7 @@ rows_final.json + e2_final.json → 서식없음 xlsx (시트명 '응답100').
 import json, openpyxl
 
 SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
-OUT = "/home/user/ggggg/exports/게이트C_합성시뮬응답_응답2차.xlsx"
+OUT = "/home/user/ggggg/exports/게이트C_합성시뮬응답_응답2차_v1.5.xlsx"
 
 rows = json.load(open(f"{SP}/rows_final.json"))
 e2 = {d["pid"]: d["e2"] for d in json.load(open(f"{SP}/e2_final.json"))}
@@ -20,8 +20,8 @@ HDR = ["응답자번호", "유입경로(F1)", "S1_연령대", "S2_신분", "S3_�
 
 
 def seg(r):
-    if r["_is_student"]: return "대학생"
     if r["_is_target"]: return "타깃"
+    if r["_is_student"]: return "확장세그"     # v1.5 §3-3 기숙사·저빈도
     return "기타"
 
 

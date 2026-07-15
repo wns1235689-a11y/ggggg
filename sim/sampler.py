@@ -80,21 +80,23 @@ def sample_persona(pid: int) -> Persona:
     freq = _choice(rng, C.S4_FREQ, C.cpt_freq(residence, age))
     travel = _choice(rng, C.S5_TRAVEL, C.cpt_travel(age))
 
-    # §3-3 대학생 세그먼트 = S2 대학원생 또는 S1 19-24 (설계서 §3-3)
-    is_student_seg = (status == "대학원생") or (age == "19-24") or (channel == "student")
-    # §3-1 1차대상 = 25-39 AND 최근1개월 구매 ≥1회
-    age_ok = age in ("25-29", "30-34", "35-39")
+    # §3-1 1차대상(v1.5 생활패턴 재정의) = S3 ①②(1인가구/2인가구) AND S4 ②~④(구매≥1).
+    #   연령(S1)은 층화 변수로만 사용 — 제외 조건 아님.
+    residence_ok = residence in ("1인가구", "2인가구")
     freq_ok = freq in ("1-2회", "3-5회", "6+회")
-    is_target = age_ok and freq_ok and not is_student_seg
+    is_target = residence_ok and freq_ok
+    # §3-3 확장세그(기숙사·저빈도) = 타깃 밖 AND (S3 ④ 기숙사 OR S4 ① 0회) — 별도 집계.
+    #   (필드명은 파이프라인 호환 위해 is_student_seg 유지, 의미는 v1.5 '확장세그')
+    is_student_seg = (not is_target) and (residence == "기숙사" or freq == "0회")
 
-    # 스크린아웃 사유(모집수 계산엔 포함, 집계 제외)
+    # 스크린아웃 사유(모집수 계산엔 포함; v1.5는 연령 제외 아님 → 기록만)
     reasons = []
-    if age == "40+":
-        reasons.append("40+")
-    if age == "19-24":
-        reasons.append("19-24")
     if freq == "0회":
         reasons.append("구매0회")
+    if residence == "기숙사":
+        reasons.append("기숙사")
+    if residence == "가족거주" and freq_ok:
+        reasons.append("가족거주")           # 타깃·확장 어느 쪽도 아닌 기타
     screenout = ";".join(reasons)
 
     p = Persona(pid, channel, age, status, residence, freq, travel,

@@ -13,7 +13,7 @@ SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratc
 # ── 신규 시드/표본크기(엔트로피 기반, 이후 기록으로 재현) ──
 seed_entropy = int.from_bytes(os.urandom(8), "big")
 meta_rng = random.Random(seed_entropy)
-N = meta_rng.randint(50, 70)
+N = meta_rng.randint(41, 51)
 RUN_SEED = meta_rng.randint(10_000_000, 99_999_999)
 
 import sim.config as C
@@ -54,10 +54,9 @@ S5_LBL = {"있다": "있다", "없다": "없다"}
 
 
 def seg(p):
-    if p.is_student_seg: return "학생"
     if p.is_target: return "타깃"
-    if p.screenout_reason: return "스크린"
-    return "일반"
+    if p.is_student_seg: return "확장"        # v1.5 확장세그(기숙사·저빈도)
+    return "기타"
 
 
 prof, meta = [], []
