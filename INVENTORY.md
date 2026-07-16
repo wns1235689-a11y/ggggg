@@ -219,3 +219,50 @@ analyze_sweep.py <저널경로>       사전분포 스윕 robust/fragile 분류 
 | e2_refine\*.py (6종: e2_refine·refine2·refine3·_v15b·_v15c·_oversample) | `python3 e2_refine_v15c.py` (인자 없음) | `SP/rows_final.json`·`survey_raw.json`(·`prof.json`) | `SP/e2_work.json`·`e2_pass1~3.json`·`e2_final.json` + stdout 검토. **P1/P2/P3 문구가 특정 pid에 하드코딩된 정적 사전**(예: v15c `:26-77`) — LLM 호출 없음, 다른 표본 재사용 불가 |
 | build_xlsx.py | `python3 build_xlsx.py` | `SP/rows_final.json`·`e2_final.json` | `exports/게이트C_합성시뮬응답_향기피오버샘플.xlsx`(OUT `:9`·시트명 `:30` — **마지막 납품 상태로 하드코딩**, 매 납품 시 수정해온 파일) |
 | build_sweep_xlsx.py | `python3 build_sweep_xlsx.py <저널경로>` | 저널+`SP/sweep_prof.json`·`sweep_meta.json` | `exports/…사전분포스윕120.xlsx`(OUT `:11`) |
+
+---
+
+## 2. 분석 스크립트 인터페이스
+
+공통: 전부 순수 python(numpy만, LLM 호출 없음). 저널 기반 4종은 `BASE`(저널 루트)와 `SP`(스크래치패드)가 파일 상단에 하드코딩. 표집 재현은 `SEED`(run_cfg의 RUN_SEED 또는 multipool_cfg의 SAMPLE_SEED)와 salt 정수로 `np.random.default_rng([SEED, pid, salt])` 결정론.
+
+### 2.1 vs_verify.py — 붕괴 해소 검증
+
+- **실행**: `python3 vs_verify.py <런ID>` (wf_vs_all 계열 저널 대상, 식별필드 `E1_dist`).
+- **입력**: `BASE/<런ID>/journal.jsonl`(`:13,16`), `SP/run_cfg.json`(`:11` — SEED).
+- **지표**: ① 문항별 믿음질량%(49명 dist 정규화 합산, `mass():51-59`) ② 결정적 표집 realized 분포(`pick():41-47`, salt 사전 `SALT:24-25` — A1=40·A2=41·B1=1·B2_1=42·B2_2=43·B3=44·C1=2·C2=3·E1=60) ③ D1 수용곡선(단조 강제 후 임계 표집, `d1_curve():66-88`, salt=51) ④ 붕괴해소 요약(E1 비슷+둘다 realized, A2 향부담 믿음질량, 문항별 사용 보기수).
+- **출력**: stdout 전용(막대그래프 텍스트). 파일 출력 없음.
+
+### 2.2 vs_compare.py — 탈동질화 전/후 대조
+
+- **실행**: `python3 vs_compare.py <구런ID> <신런ID>`.
+- **입력**: 두 저널 + **`/tmp/args_dump.txt`의 5번째 줄**(DIST 페르소나 JSON — `:11`). `[불명확: /tmp/args_dump.txt 생성 스크립트가 repo에 없음(세션 인라인 생성 임시파일). 이 파일이 없으면 즉시 실패]`
+- **지표**: ① 페르소나간 분포 다양성(문항별 서로다른 패턴수·최빈 점유%, `diversity():27-30`) ② 특성→응답 방향 대비 Δ(향기피→E1(나-가)/A2①, 가격민감→B3가격걱정/buy_8500, 관여→E1둘다, 회의→C2기존유지 — `contrast():33-46`, `contrasts():57-77`).
+- **출력**: stdout 전용.
+
+### 2.3 v23_analyze.py — v2.3 단일풀 판정
+
+- **실행**: `python3 v23_analyze.py <런ID>` (wf_vs_v23 저널, 식별필드 `A2a_dist`).
+- **입력**: 저널(`:16`) + `SP/run_cfg.json`(`:14`) + `SP/pool_meta.json`(`:18` — is_target 판별).
+- **지표**: ① A2a 유병률 협의(매우만)/광의(조금+매우) + 광의 믿음질량(1차대상/전체 분리) ② 주판정: 향기피 세그(협/광 컷) vs 비기피의 B1(가중평균)·C2 전환성향(꼭=1/가끔=0.5/유지=0)·D1 수용(buy_* 평균/10) Δ + 판정문(지지방향/평평/혼조 임계 `:121-123`) ③ 연속상관: A2a 강도(`a2_intensity()`=[0,.5,1] 가중) ↔ B1/C2/D1 pearson ④ dose-response: A2a 3단 그룹별 B1 단조성 ⑤ 저커밋(B3 양+맛 vs 가격), E1 분포(T2 압도 임계=나>가+n×0.15), A2x 타당도(예/아니오별 향부담 강도) ⑥ 한계 노출(B1/C2/E1 최빈패턴 점유%). salt 사전 `:25-26`(A2a=41…E1=60, D1임계=51).
+- **출력**: stdout 전용.
+
+### 2.4 v23_multi_analyze.py — 다풀 견고성 + 시드앙상블
+
+- **실행**: `python3 v23_multi_analyze.py <런ID>` (wf_v23_multi 저널).
+- **입력**: 저널(`:14`) + `SP/multipool_cfg.json`(`:12` — SAMPLE_SEED) + `multipool_meta.json`(`:16`) + `multipool_args.json`(`:17` — latent 원값).
+- **지표**: ① 풀별(pid//1000)·통합 연속상관 r + p(정규근사 양측, `pearson():44-58`): 향부담강도 ↔ B1/C2/D1/E1(나-가) ② 시드앙상블(K_ENS=12, `:18`): 실현 A2a 협의컷 세그교차 ΔB1 평균±sd(`ens_seg_delta():61-75`, rng=[SSEED,pid,41,e]) ③ 강한 축: 가격민감↔D1수용, 관여↔E1둘다별로 ④ 풀-일관성(부호 일치 여부).
+- **출력**: stdout 전용.
+
+### 2.5 analyze_sweep.py — 사전분포 스윕 robust/fragile 분류
+
+- **실행**: `python3 analyze_sweep.py <저널경로>` (※ 런ID가 아니라 **저널 파일 전체 경로**를 받음 — 다른 4종과 인터페이스 불일치).
+- **입력**: 저널 + `SP/sweep_meta.json`(`:13` — pid→cfg).
+- **지표**: cfg(인구)별 A2 접근성vs향기피%, B2 1순위 T1축(완조리·가성비)vsT2축(매실청·향부담없음)%, E1 가:나%, B1 평균, C2 구매%, D1 5900/6900 수용% → `classify()`(`:88-101`): 전 인구 동일 부호(±3%p 데드존, 비영 3개 이상)=ROBUST, 뒤집힘=FRAGILE, 전부 데드존=무방향.
+- **출력**: stdout + **`SP/sweep_analysis.json`**(`:113` — cfg별 지표 rows).
+
+### 2.6 라이브러리 수준 분석 (sim/ — run.py·run_live.py·map_and_ingest.py가 호출)
+
+- `sim/aggregate.py` — `aggregate(responses:list[dict]) -> dict`: §3 잠금 규칙 집계. 산출 2버킷: `A_설계리스크_운영점검`(인용가능 — N·B4실패·직진·E1 순서역전율·D1 비단조율·채널플래그·C1⑤)과 `B_방향성_사전분포`(인용금지 — B1/B2/B3/C1/C2/D1/A2/E1, 등급 🟡/🔴). 셀 구조 `{"value","grade","cite","label"}`(`_cell():19-20`).
+- `sim/report.py` — `build_report(agg, n, backend_name) -> (md문자열, lint결과)`: §9.4 5블록 리포트.
+- `sim/linter.py` — `lint(agg) -> {"pass","violations","note"}`: A/B 계약·🔴 강제(`_MUST_BE_RED:10`)·금지어(`_FORBIDDEN_WORDS:11` — "검증됨/보정된/예측된/정확/실측 확인") 검사.
