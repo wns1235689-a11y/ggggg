@@ -381,3 +381,82 @@ analyze_sweep.py <저널경로>       사전분포 스윕 robust/fragile 분류 
 `SP/rows_final.json` 항목(응답 최종 — build_xlsx 입력): `respondent_id, F1_channel, S1~S5, A1, A2, B1, B2_1순위, B2_2순위, B3, B4, C1, C2, D1_5900~D1_8500("산다"/"안 산다"), E1, E2, F2, _is_target, _is_student, _screenout, _flag_b4_pass, _flag_straightline, _flag_d1_nonmonotone, _flag_e1_swap_flip, _flag_unprimed_ok, _flag_structural_inconsistency, _backend` (sim/respondent.py:120-134 및 sim/ingest.py:32-45와 동형).
 
 `SP/agg_final.json` / `out/aggregate.json`: §2.6 aggregate 산출(`A_설계리스크_운영점검`·`B_방향성_사전분포`·`_invariant`·`_labels`).
+
+---
+
+## 4. 하드코딩 지점 목록 (UI 주입 후보 — 변경하지 않음, 목록만)
+
+난이도: **하**=단순 파라미터화(CLI 인자/환경변수/설정파일로 즉시 전환 가능), **중**=여러 파일 동기 수정 또는 데이터 재생성 필요, **상**=구조 변경(단일 소스화·러너 구현) 필요.
+
+### 4a. 경로 (최우선 교체 대상)
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| SP=`/tmp/claude-0/…/scratchpad`(세션 특정) | 19개 py 파일 상단 — analyze_sweep.py:10, build_fresh_pool.py:11, build_multipool.py:8, build_oversample.py:12, build_sweep.py:9, build_sweep_xlsx.py:9, build_xlsx.py:8, e2_refine*.py(6종):10-11, extract_raw.py:4, map_and_ingest.py:9, patch_e1.py:6, v23_analyze.py:12, v23_multi_analyze.py:10, vs_verify.py:10, vs_compare.py:7 | 하 | 문자열 상수 1개씩 — 환경변수/공통 config 모듈로 치환 용이. 단 19곳 동기 수정 |
+| BASE=`/root/.claude/projects/…/subagents/workflows`(세션 특정) | extract_raw.py:5, patch_e1.py:9, v23_analyze.py:16, v23_multi_analyze.py:14, vs_compare.py:9, vs_verify.py:13 | 하 | 동일 — 6곳 |
+| `/tmp/args_dump.txt` 5번째 줄 의존 | vs_compare.py:11 | 중 | 생성 스크립트가 repo에 없는 세션 임시파일 — 입력을 정식 파일(multipool_args 형식)로 교체 필요 |
+| xlsx 출력 경로+시트명(마지막 납품 상태) | build_xlsx.py:9(OUT)·30(ws.title="향기피오버샘플"), build_sweep_xlsx.py:11·33 | 하 | CLI 인자화하면 끝 — 현재는 납품마다 수동 수정해 온 파일 |
+| out/ 상대경로 | run.py:15, run_live.py:13 | 하 | 이미 `__file__` 기준 상대라 이식성 있음(참고용 기재) |
+
+### 4b. 시드·N·표본 구성
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| `GLOBAL_SEED = 20260713` | sim/config.py:20 | 하 | 모듈 전역 — 단 모든 스크립트가 런타임에 덮어쓰는 관례(§5 전역상태) |
+| `DEFAULT_N = 100` | sim/config.py:21 | 하 | run.py CLI로 이미 오버라이드 가능 |
+| N=`randint(44,53)`·RUN_SEED=`randint(1e7,1e8-1)`·엔트로피 `os.urandom(8)` | build_fresh_pool.py:14-17 | 하 | CLI 인자(N, seed)로 전환하면 재현 가능한 재실행도 확보 |
+| N=58 고정·오버라이드 (0.84,0.20)/(0.26,0.15) | build_oversample.py:16, 23-24 | 하 | 오버샘플 파라미터를 설정으로 |
+| N_PER=30·SWEEPS 4개 인구 정의 | build_sweep.py:10, 18-32 | 중 | 스윕 시나리오 자체가 UI 편집 대상(사전분포 사전) |
+| N_PER=100·N_POOLS=3 | build_multipool.py:9-10 | 하 | 즉시 인자화 가능 |
+| personas **JSON 리터럴 baked**(49명/49명/300명) | wf_vs_all.js:51, wf_vs_v23.js:59, wf_v23_multi.js:59 | 중 | args 주입 방식(구형 wf처럼 `:33-35` 패턴)으로 되돌리면 해소 — 현재는 풀 바꿀 때마다 파일 재생성 필요 |
+| ingest 풀 재구성 기본 n=100 | sim/ingest.py:16, 20 | 하 | 호출부(map_and_ingest.py:126)는 n=N 전달로 회피 중 — run_live.py는 기본값 사용(N≠100 풀이면 KeyError 위험) |
+
+### 4c. LLM 실행 파라미터
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| effort `'low'` | wf_precise_survey.js:111, wf_vs_dist.js:33, wf_vs_cat.js:37, wf_vs_d1.js:36, wf_e1_dist.js:35 | 하 | agent() 옵션 문자열 1개 |
+| effort `'medium'` | wf_vs_all.js:53, wf_vs_v23.js:61, wf_v23_multi.js:61 | 하 | 〃 |
+| effort `'high'` | wf_fidelity.js:81, 99, 123 | 하 | 〃 |
+| 모델: wf 전 파일 `model` 미지정(세션 상속) | (부재 자체가 값) | 중 | UI가 모델을 지정하려면 agent() 옵션 추가 또는 하니스 세션 모델 제어 필요 |
+| ClaudeBackend 기본 모델 ID 상수(문자열 미기재) | sim/backends.py:199 (오버라이드 생성자 인자 `:201`) | 하 | 생성자 인자·환경변수화 용이. API 키는 `ANTHROPIC_API_KEY` 환경변수(`:205`) |
+| VS 표집 max_tokens=500 | sim/backends.py:253 | 하 | 상수 1개 |
+
+### 4d. 설문 문항·보기·프롬프트 (UI '설문 설계' 기능의 핵심 교체 대상)
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| 표준라벨 OPT 사전 | sim/respondent.py:16-30 | 상 | 집계(aggregate)·린터의 라벨 문자열과 결합 — 문항 변경 시 §3 규칙까지 연쇄 |
+| v1.4/1.5 원문 보기 상수 | wf_precise_survey.js:8-27 / build_fresh_pool.py:26-37 / build_oversample.py:30-40 (3중 중복) | 상 | 동일 문자열이 3파일+매핑사전에 분산 — 단일 문항 정의 소스 필요 |
+| 원문→표준 매핑 사전 | map_and_ingest.py:19-44 | 상 | 문항 개정 때마다 수동 동기화 필요한 지점 |
+| VS 전면화 프롬프트(문항+지시문+컨셉카드) | wf_vs_all.js:26-47 | 중 | 템플릿 함수 1개 — 문항 정의를 인자로 빼면 재사용 가능 |
+| v2.3 프롬프트+SCHEMA(보기 개수가 스키마에 고정: A2a~d minItems=3, B2=5 등) | wf_vs_v23.js:6-28, 30-56 (wf_v23_multi 동일) | 중 | 보기 수를 바꾸면 스키마·프롬프트 동시 수정 필요 |
+| D1 가격 4점(5900/6900/7500/8500) | sim/respondent.py:32, map_and_ingest.py:70, wf 프롬프트들, v23_analyze.py:27, sim/config.py:208-209 등 | 상 | 가격축이 스키마 필드명(buy_5900)에까지 박혀 있음 — 가격 변경은 전 계층 연쇄 |
+| E1 헤드라인 원문·패러프레이즈 | sim/config.py:252-260, wf_precise_survey.js:22-23, build_fresh_pool.py:35-36 등 | 중 | 중복 정의 — 단일화 필요 |
+| 컨셉 카드 | sim/backends.py:323-327 + 각 wf 프롬프트 내 중복 | 중 | 〃 |
+| B4 정답 `"그렇다"` | sim/respondent.py:33 | 하 | 상수 1개 |
+
+### 4e. 페르소나·행동 모델 상수
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| LATENT_SPECS 21개 (μ,σ) | sim/config.py:150-173 | 하 | dict 교체로 스윕 가능(빌드 스크립트들이 이미 그렇게 함) — UI의 '사전분포 편집' 표적 |
+| 인구 CPT(CPT_AGE·cpt_status·cpt_residence·cpt_freq·cpt_travel·CHANNEL_MIX) | sim/config.py:39, 94-144 | 중 | 함수 내 분기 하드코딩 — 표 형태 설정으로 재구조화 필요 |
+| 파생 상관 계수(−0.20 완충, +0.3 sauce, ±bump 등) | sim/sampler.py:36-51 | 중 | 수식 내 매직넘버 |
+| ANCHOR_PRIORS(A1분포·A2 밴드 20~48%·B1 mean/sd·C2·D1 수용밴드·노이즈율) | sim/config.py:193-230 | 중 | 시뮬 '현실 앵커' 전체 — UI 노출 가치 높음 |
+| STRUCTURAL_INCONSISTENCY_RATE=0.12 / CHANNEL_FAVOR_OFFSET | sim/config.py:186, 188 | 하 | 상수 |
+| 정합 틸트 계수(c2_tilt ±0.8, d1_c2_tilt 벡터, CH_FAVOR, b1_channel_tilt 0.5) | map_and_ingest.py:73-80, 106-118 | 중 | 손튜닝 결합 — 방향성 해석에 영향(문서화된 설계 선택) |
+| lvl 등급 임계(3단 0.66/0.4 · 5단 0.75/0.58/0.42/0.25) | wf_precise_survey.js:71 / wf_vs_all.js:29 등 | 하 | 파일별 상수 — 단 이원화 자체가 혼선 요인 |
+| MockBackend 응답 규칙 계수 전체 | sim/backends.py:66-191 | 상 | 규칙 기반 백엔드의 본체 — 교체보다는 유지 대상 |
+
+### 4f. 후처리·분석 상수
+
+| 값 | 파일:줄 | 난이도 | 이유 |
+|---|---|---|---|
+| 표집 salt 사전(A1=40…E1=60, D1임계=51) | vs_verify.py:24-25, v23_analyze.py:25-27, patch_e1.py:25(60), map_and_ingest.py:66·94(51) 등 | 중 | 파일 간 **일치해야 재현 정합** — 공통 모듈화 필요 |
+| K_ENS=12(시드앙상블 횟수)·SALT_A2a=41 | v23_multi_analyze.py:18, 20 | 하 | 상수 |
+| CLEAN_MONOTONE_D1=True | map_and_ingest.py:15 | 하 | 플래그 1개(D1 비단조 주입 on/off) |
+| 판정 임계(세그Δ 0.15/0.03, dose 0.01, T2압도 0.15n, robust ±3%p 데드존) | v23_analyze.py:121-123·147-150, analyze_sweep.py:90 | 중 | 판정 규칙 — UI '판정' 단계에서 명시 노출 권장 |
+| e2_refine 계열 SUBSET·P1/P2/P3 문구(pid 고정) | e2_refine_v15c.py:15·26-77, e2_refine_oversample.py:15·25-70, e2_refine_v15b.py:16 등 | 상 | **일회성 수작업 산출물** — 새 표본마다 사람이 새 파일을 써 온 패턴. UI화하려면 LLM 호출 단계로 재설계 필요 |
+| 유병률 기준 분모 상수(v15c의 `/50`, oversample의 `/35`) | e2_refine_v15c.py:86, e2_refine_oversample.py:79 | 하 | 표본 크기 하드코딩 |
+| wf_fidelity CTX(N=74 세대 기준 서술) | wf_fidelity.js:11-30 | 중 | 평가 대상 요약이 구세대 고정 — 재사용 시 재작성 필요 |
