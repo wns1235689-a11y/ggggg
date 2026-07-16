@@ -266,3 +266,118 @@ analyze_sweep.py <저널경로>       사전분포 스윕 robust/fragile 분류 
 - `sim/aggregate.py` — `aggregate(responses:list[dict]) -> dict`: §3 잠금 규칙 집계. 산출 2버킷: `A_설계리스크_운영점검`(인용가능 — N·B4실패·직진·E1 순서역전율·D1 비단조율·채널플래그·C1⑤)과 `B_방향성_사전분포`(인용금지 — B1/B2/B3/C1/C2/D1/A2/E1, 등급 🟡/🔴). 셀 구조 `{"value","grade","cite","label"}`(`_cell():19-20`).
 - `sim/report.py` — `build_report(agg, n, backend_name) -> (md문자열, lint결과)`: §9.4 5블록 리포트.
 - `sim/linter.py` — `lint(agg) -> {"pass","violations","note"}`: A/B 계약·🔴 강제(`_MUST_BE_RED:10`)·금지어(`_FORBIDDEN_WORDS:11` — "검증됨/보정된/예측된/정확/실측 확인") 검사.
+
+---
+
+## 3. 데이터 구조
+
+### 3.1 결과 저장 디렉토리 구조 (실제 발췌)
+
+```
+/home/user/ggggg/                    ← repo 루트 (git)
+├── sim/                             ← 엔진(config·sampler·backends·respondent·ingest·aggregate·report·linter)
+├── wf_*.js ×9                       ← Workflow 스크립트
+├── build_*.py, *_analyze.py 등      ← 풀생성·후처리·분석
+├── out/                             ← run.py/run_live.py 산출 (.gitignore — 비추적)
+│   ├── personas.csv latents.csv summary.json responses.csv aggregate.json report_9_4.md
+│   └── responses_live.csv aggregate_live.json report_live_9_4.md
+├── exports/                         ← 납품 xlsx·분석 md (git 추적)
+│   └── 게이트C_합성시뮬응답_{100명,응답2차,v1.5_3차,74_E1보정,…,향기피오버샘플,사전분포스윕120}.xlsx
+├── demo/                            ← 초기 라이브 실증 산출물(응답 json·csv·리포트)
+└── docs/source/                     ← 원본 설문설계 v1.4·파일럿프로토콜 md
+
+/tmp/claude-0/-home-user-ggggg/8fffd176-…-c1238d2e4b2b/scratchpad/   ← "SP" (세션 임시 — repo 밖)
+├── run_cfg.json prof.json pool_meta.json          ← 현행 단일 풀
+├── multipool_args.json multipool_meta.json multipool_cfg.json
+├── sweep_prof.json sweep_meta.json sweep_analysis.json
+├── survey_raw.json dist_raw.json d1_raw.json      ← 저널 추출본
+├── rows_final.json agg_final.json                 ← 매핑·집계 결과
+└── e2_work.json e2_pass1~3.json e2_final.json     ← E2 다듬기
+
+/root/.claude/projects/-home-user-ggggg/8fffd176-…-c1238d2e4b2b/subagents/workflows/   ← "BASE" (하니스 저널 — repo 밖)
+└── wf_<hex>/journal.jsonl  (+ agent-<id>.jsonl 개별 트랜스크립트)
+```
+
+⚠️ SP·BASE는 **이 세션 컨테이너가 사라지면 소실**된다. repo에 커밋된 것은 스크립트·exports·문서뿐, 원 저널/중간 JSON은 비커밋(§5).
+
+### 3.2 런ID·식별자 체계
+
+| 식별자 | 형식/규칙 | 발급 주체 |
+|---|---|---|
+| 워크플로 런ID | `wf_` + hex(예: `wf_9971e46b-6d1`) | Claude Code Workflow 도구. `[불명확: 정확한 생성 규칙은 하니스 내부]` |
+| RUN_SEED | 8자리 정수(10,000,000~99,999,999). `run_cfg.json`에 기록 | build_fresh_pool.py:17 / build_oversample.py:17 (엔트로피 기원) |
+| 풀시드·SAMPLE_SEED | 동일 범위. `multipool_cfg.json`·`sweep_meta.json`에 기록 | build_multipool.py:16-17 / build_sweep.py:48-50 |
+| pid (단일 풀) | 0..N-1 | sampler.build_pool |
+| pid (스윕) | `cfg*100 + 풀내pid` (0~329) | build_sweep.py:60 |
+| pid (다풀) | `풀번호*1000 + 풀내pid` (0~2099) | build_multipool.py:37 |
+| xlsx 응답자번호 | `pid + 1` | build_xlsx.py:35 / patch_e2.py:13 |
+| 표집 재현 | `np.random.default_rng([SEED, pid, salt])` — salt는 문항별 정수(§2 참조) | 전 후처리 스크립트 공통 관례 |
+
+### 3.3 페르소나 latent 스키마
+
+**정의 위치**: `sim/config.py:150-173` `LATENT_SPECS` — 필드별 `(평균, SD)` 정규분포 표집 후 [0,1] clip(`sim/sampler.py:30-34`). 전 21개 필드:
+
+| 필드 | (μ, σ) | 용도(주석 기준) |
+|---|---|---|
+| midpoint_bias | (0.55, 0.18) | 중간범주 편중 |
+| acquiescence | (0.50, 0.18) | 묵인 경향 |
+| extremity_low | (0.60, 0.18) | 극단값 회피 |
+| skepticism | (0.50, 0.22) | 회의도 |
+| spice_aversion | (0.34, 0.25) | A2 향기피 구동 [스윕: 밴드 20~48%] |
+| plum_familiarity | (0.62, 0.20) | 매실청 친숙도 |
+| price_sensitivity | (0.55, 0.22) | 가격민감 |
+| verbosity | (0.50, 0.20) | E1 verbosity 진단용 |
+| attentiveness | (0.80, 0.18) | 낮을수록 B4 실패·직진 |
+| involvement | (0.50, 0.22) | 관여(S4 빈도로 재보정) |
+| quality_trust | (0.55, 0.22) | 냉동 품질 신뢰 |
+| authenticity_goal | (0.45, 0.25) | 정통성 기대 |
+| access_barrier | (0.50, 0.22) | 접근 장벽 |
+| sauce_barrier | (0.40, 0.22) | 낯선 소스 부담 |
+| portion_expect | (0.50, 0.22) | 식사량 기대 |
+| pantry_constraint | (0.45, 0.24) | 팬트리 제약 |
+| category_frequency | (0.50, 0.24) | 카테고리 섭취빈도 |
+| social_desirability | (0.45, 0.18) | 사회적 바람직성 |
+| message_orientation | (0.50, 0.25) | T1↔T2 선호(※ MockBackend/backends 경로에서만 사용 — wf 경로에선 미노출) |
+| novelty_seeking | (0.50, 0.22) | 신메뉴 탐색 |
+| trial_propensity | (0.45, 0.22) | 시도 의향 |
+
+**파생 상관**(`sim/sampler.py:35-51`): spice_aversion ← −0.20×(plum_familiarity−0.5) 완충 / involvement·category_frequency ← S4 빈도 bump(0회 −0.15 ~ 6+회 +0.20) / sauce_barrier ← +0.3×(spice−0.5) / pantry_constraint ← 1인가구·기숙사 +0.20 / message_orientation ← +0.30×(spice−0.5) −0.20×(involvement−0.5) / channel_favor_offset ← `CHANNEL_FAVOR_OFFSET`(config:188) + N(0,0.1).
+
+**워크플로 노출 필드 매핑**(build_* → wf 프롬프트, 한국어 9개): `향기피`=spice_aversion · `매실청`=plum_familiarity · `관여`=involvement · `회의`=skepticism · `가격민감`=price_sensitivity · `접근성`=access_barrier · `정통기대`=authenticity_goal · `식사량`=portion_expect · `카테고리빈도`=category_frequency (예: build_fresh_pool.py:74-78). 나머지 12개 latent는 wf 경로에 미노출.
+
+**등급화(lvl) 이원화 주의**: 구형 wf·backends는 3단(`>0.66/0.4` — wf_precise_survey.js:71, build_sweep.py:82 / `>0.6/0.4` — sim/backends.py:219), 신형 wf는 5단(`>0.75/0.58/0.42/0.25` — wf_vs_all.js:29, wf_vs_v23.js:29, wf_v23_multi.js:29).
+
+**인구 CPT**(결합분포): `sim/config.py:87-144` — S1_AGE·S2_STATUS·S3_RESIDENCE·S4_FREQ·S5_TRAVEL 옵션(`:87-91`), CPT_AGE(`:94-98`), cpt_status(`:100-110`), cpt_residence(`:115-128`), cpt_freq(`:131-137`), cpt_travel(`:141-144`), CHANNEL_MIX(`:39`). 타깃 판정: `sim/sampler.py:83-90`(§3-1 = S3∈{1인,2인가구} AND S4≥1회; 확장세그 = 기숙사 OR 0회).
+
+### 3.4 설문 문항·보기 정의 위치 (버전별로 분산 — 단일 소스 없음 ⚠️)
+
+| 버전/용도 | 자료구조 | 위치 |
+|---|---|---|
+| 표준라벨(집계용) | `OPT` dict(A1/A1_key/A2/B3/B4/C1/C2/C2_key/E1/B2_rows) + `D1_PRICES`·`B4_CORRECT` | sim/respondent.py:16-33 |
+| v1.4/1.5 원문(설문지 문자열) | JS 상수 A1/A2/B2/B3/B4/C1/C2/SD/E1_ITEMS | wf_precise_survey.js:8-27 |
+| v1.4/1.5 원문(파이썬 측) | A2_FULL/B2_FULL/B3_FULL/E1_GA/E1_NA/E1_ITEMS | build_fresh_pool.py:26-37 (동일 상수가 build_oversample.py:30-40에 중복) |
+| 원문→표준 매핑 | A2_MAP/B2_MAP/B3_MAP/C1_MAP/C2_MAP/E1_MAP | map_and_ingest.py:19-44 |
+| VS 전면화 문항(프롬프트 내장) | 템플릿 리터럴(보기 대괄호 나열) | wf_vs_all.js:31-47 |
+| **v2.3 문항**(A2 4×3점+A2x·B2 5지·E1 4지) | 템플릿 리터럴 + SCHEMA | wf_vs_v23.js:30-56·6-28 (wf_v23_multi.js 동일) |
+| E1 헤드라인(동결 원문+패러프레이즈) | `E1_HEADLINES` dict | sim/config.py:252-260 |
+| 컨셉 카드 | `CONCEPT_CARD` 문자열 | sim/backends.py:323-327 (wf 파일들에는 프롬프트 내 별도 중복) |
+| 분석용 축약 보기 | `OPTS`/`B2O`/`B3O`/`C2O`/`E1O` 등 | vs_verify.py:15-23, v23_analyze.py:19-24 |
+| 문항 앵커 사전분포 | `ANCHOR_PRIORS`(A1/A2유병률/B1/C2/D1/노이즈율) | sim/config.py:193-230 |
+| §3 잠금 분석규칙 | `LOCKED_RULES` | sim/config.py:265-275 |
+
+같은 보기가 **최소 4곳 이상에 표기 변형**(예: C1 "냉동/밀키트" vs "냉동/밀키트를 사 먹는다" vs "냉동·밀키트")으로 존재하며 map_and_ingest의 매핑 사전이 이를 흡수한다 — UI가 문항을 편집 가능하게 만들려면 이 다중 정의를 단일 소스로 통합해야 함(§5).
+
+### 3.5 주요 파일 스키마 발췌
+
+`SP/prof.json` 항목(fresh/oversample — 워크플로 args용):
+```json
+{"pid":0, "seg":"타깃", "S1":"만 35–39", "S2":"직장인", "S3":"2인 가구", "S4":"6회 이상", "S5":"없다",
+ "향기피":0.134, "매실청":0.634, "관여":0.7, "회의":0.214, "가격민감":0.567, "접근성":0.622,
+ "정통기대":0.337, "식사량":0.277, "카테고리빈도":0.555,
+ "A2_order":[…6개 원문 셔플], "B2_order":[…6], "B3_order":[…7], "E1_order":[{"tag":"가","text":"…"},…]}
+```
+`SP/pool_meta.json` 항목(ingest·타깃 판정용): `{"pid","channel","S1_age","S2_status","S3_residence","S4_freq","S5_travel","is_target","is_student_seg","screenout_reason"}` (+multipool은 `"pool"` 추가).
+
+`SP/rows_final.json` 항목(응답 최종 — build_xlsx 입력): `respondent_id, F1_channel, S1~S5, A1, A2, B1, B2_1순위, B2_2순위, B3, B4, C1, C2, D1_5900~D1_8500("산다"/"안 산다"), E1, E2, F2, _is_target, _is_student, _screenout, _flag_b4_pass, _flag_straightline, _flag_d1_nonmonotone, _flag_e1_swap_flip, _flag_unprimed_ok, _flag_structural_inconsistency, _backend` (sim/respondent.py:120-134 및 sim/ingest.py:32-45와 동형).
+
+`SP/agg_final.json` / `out/aggregate.json`: §2.6 aggregate 산출(`A_설계리스크_운영점검`·`B_방향성_사전분포`·`_invariant`·`_labels`).
