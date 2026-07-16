@@ -460,3 +460,51 @@ analyze_sweep.py <저널경로>       사전분포 스윕 robust/fragile 분류 
 | e2_refine 계열 SUBSET·P1/P2/P3 문구(pid 고정) | e2_refine_v15c.py:15·26-77, e2_refine_oversample.py:15·25-70, e2_refine_v15b.py:16 등 | 상 | **일회성 수작업 산출물** — 새 표본마다 사람이 새 파일을 써 온 패턴. UI화하려면 LLM 호출 단계로 재설계 필요 |
 | 유병률 기준 분모 상수(v15c의 `/50`, oversample의 `/35`) | e2_refine_v15c.py:86, e2_refine_oversample.py:79 | 하 | 표본 크기 하드코딩 |
 | wf_fidelity CTX(N=74 세대 기준 서술) | wf_fidelity.js:11-30 | 중 | 평가 대상 요약이 구세대 고정 — 재사용 시 재작성 필요 |
+
+---
+
+## 5. 리스크·특이사항
+
+### 5.1 UI를 얹을 때 문제될 구조
+
+1. **실행 하니스 종속(최대 리스크)**: 시뮬의 심장인 `wf_*.js`는 Claude Code Workflow 런타임 전용. repo에는 `agent()/parallel()`에 해당하는 독립 러너가 없다. 웹 UI 백엔드의 선택지: ①Claude Code를 서브프로세스/SDK로 구동, ②`sim/backends.py`의 ClaudeBackend(anthropic SDK 직접 호출) 경로를 확장해 wf 프롬프트·스키마를 이식. ②의 경우 구조화 출력 스키마 강제·병렬 실행·재시도를 자체 구현해야 함.
+2. **전역 상태 변이 패턴**: 모든 풀 생성·후처리 스크립트가 `sim.config`의 모듈 전역(`C.GLOBAL_SEED`, `C.LATENT_SPECS`)을 **런타임에 덮어쓴다**(build_fresh_pool.py:20, build_oversample.py:20-24, build_sweep.py:54-56, map_and_ingest.py:14). 단일 프로세스 순차 실행 전제 — 웹서버(멀티스레드/장수 프로세스)에서는 요청 간 오염·경합 위험. build_sweep은 복원하지만(`:73`) try/finally가 아니라 예외 시 미복원.
+3. **세션 특정 경로**: SP(19곳)·BASE(6곳) 하드코딩(§4a). 이 세션 컨테이너 밖에서는 전부 즉사. 또한 **SP·저널은 휘발성**(컨테이너 소멸 시 원자료 소실) — 현재 영속 산출물은 exports/·문서·git뿐. UI는 저널을 실행 직후 영속 저장소로 복사하는 단계가 필요.
+4. **run_cfg.json 덮어쓰기 경쟁**: build_fresh_pool과 build_oversample이 같은 `SP/run_cfg.json`·`prof.json`·`pool_meta.json`에 쓴다 — 마지막 실행이 이김. 어느 풀의 산출인지는 `oversample` 키 유무로만 구분(멀티풀은 별도 파일이라 안전).
+5. **in-place 변이 패치**: patch_e1.py는 `rows_final.json`을(`:38`), patch_e2.py는 xlsx를 제자리 덮어씀 — 롤백 불가. UI에서는 버전드 출력 권장.
+6. **동일 문항 다중 정의**(§3.4): 보기 문자열이 최소 4곳에 변형 표기로 분산, map_and_ingest 매핑 사전이 수동 흡수. 문항 편집 UI를 만들려면 단일 문항 소스 + 파생 생성이 선행돼야 함.
+7. **파생 복사본 드리프트**: wf_v23_multi.js는 wf_vs_v23.js의 이름·personas 치환본 — 프롬프트 개정 시 2곳 동기화 필요. build_oversample의 문항 상수도 build_fresh_pool과 중복.
+8. **스크립트가 곧 상태**: build_xlsx.py(출력 경로·시트명), e2_refine 계열(pid 고정 문구), wf 신형 3종(personas baked)은 "마지막 납품 상태"가 코드에 남는 패턴 — 실행 이력과 코드 상태가 얽혀 있음.
+9. **스키마 검증 갭**: dist 합=10, buy_* 단조는 JSON Schema가 아니라 프롬프트 지시 — 위반 응답도 저널에 그대로 남는다. 후처리가 정규화(`w/w.sum()`)·단조 강제(`d1_from_curve`)로 흡수하지만, 0벡터 fallback(균등분포)·합≠10은 조용히 지나감.
+10. **analyze_sweep 인터페이스 불일치**: 다른 분석 4종은 런ID를 받는데 이것만 저널 전체 경로를 받음(§2.5).
+11. **exports/ 바이너리 누적**: xlsx 10종이 git 추적 — 리포 비대화(경미).
+
+### 5.2 재현성 — 시드가 결과를 결정하는가
+
+**결정론(시드로 완전 재현)**:
+- 페르소나 풀: `np.random.default_rng([GLOBAL_SEED, pid])`(sampler.py:15-17) — 시드·N이 같으면 bit-identical.
+- 후처리 표집·노이즈·셔플: 전부 `default_rng([SEED, pid, salt])` 관례 — run_cfg의 RUN_SEED(또는 SAMPLE_SEED)가 결정. B4 실패(salt=4)·직진(7)·비단조(15)·Q017(17)·D1 임계(51)·E1(60) 등.
+- wf_precise_survey의 보기 셔플: mulberry32(pid, salt) — 시드 독립·결정론.
+
+**비결정(시드가 결정하지 못하는 곳)**:
+- **풀 생성 스크립트의 시드 자체**: `os.urandom` 기원(build_fresh_pool.py:14, build_oversample.py:14, build_sweep.py:48, build_multipool.py:16-17) — **재실행마다 새 표본**. 시드는 산출 파일에 기록되지만, 기록된 시드를 다시 주입하는 인터페이스(CLI 인자)가 없어 재현하려면 코드 수정 필요.
+- **LLM 분포 생성**: wf 에이전트 호출에 시드 개념이 없음 — 같은 personas·프롬프트라도 재실행 시 dist 값이 달라진다. **저널이 유일한 원자료**이고, "재현"은 (저널 고정) 후처리·표집 계층에서만 성립.
+- 하니스 병렬 실행 순서(저널 라인 순서) — pid 키 dedup으로 무해화됨.
+
+결론: **재현성 경계 = 저널.** 저널+run_cfg(+pool_meta)가 보존되면 이후 전 단계 bit-identical, 그 앞은 비결정.
+
+### 5.3 [불명확] 표기 전체 모음 (7건)
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | §1.0 | wf_*.js를 Claude Code 하니스 밖에서 실행하는 방법 — repo에 러너 부재 |
+| 2 | §1.0·§3.2 | 워크플로 런ID 생성 규칙·저널 경로 규칙 — 하니스 내부(관측 형식만 확인) |
+| 3 | §1.11 | requirements.txt의 scipy·pandas 사용처를 코드에서 못 찾음(잔재 추정) |
+| 4 | §2.2·§4a | `/tmp/args_dump.txt`(vs_compare.py 입력)의 생성 스크립트가 repo에 없음 — 세션 인라인 생성 임시파일 |
+| 5 | §1.0(모델)·§4c | wf 에이전트가 실제 사용하는 모델 — 스크립트에 `model` 미지정으로 세션 메인루프 모델 상속. repo 정적 분석만으로 특정 불가 |
+| 6 | (본 절) | demo/의 라이브 응답(live24/live100) 생성 워크플로 `gateC-live-24`(demo/README.md 언급) 스크립트가 repo에 없음 |
+| 7 | (본 절) | SP에 존재하는 유래 불명 중간 파일들(agent100.json, agent100_vs.json, demo*.json, research.json, designs.json, judge.json, v02_*.json, v03_*.json, wf_args.json, prof_compact.json, prof_d1.json, d1_args.json, dist100.json, e2_src.json, e2_new.json) — 생성 스크립트가 repo에 없음(과거 세션 인라인 작업 추정). 현행 파이프라인 계약에는 미포함 |
+
+---
+
+*본 문서는 읽기 전용 정적 정찰로 작성됨 — 어떤 코드도 실행·수정하지 않음. 근거는 전부 파일:줄번호로 역추적 가능.*
