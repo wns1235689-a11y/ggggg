@@ -1,0 +1,1 @@
+{"pools": [{"pool": 0, "seed": 99758933, "N": 100, "target": 66, "target_rate": 0.66}, {"pool": 1, "seed": 44595159, "N": 100, "target": 73, "target_rate": 0.73}, {"pool": 2, "seed": 25049546, "N": 100, "target": 73, "target_rate": 0.73}], "SAMPLE_SEED": 53783624, "N_PER": 100, "N_POOLS": 3}

@@ -1,0 +1,18 @@
+{
+ "run_id": "wf_6ff10eda-c1f",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.17,
+ "gzipped": false,
+ "pool_source": "/tmp/r4pool",
+ "pool_files": [
+  "multipool_cfg.json",
+  "multipool_meta.json",
+  "multipool_args.json"
+ ],
+ "params": {
+  "script": "wf_v23_multi.js",
+  "effort": "medium",
+  "N": 300,
+  "note": "R4 다풀 3x100 — P2-3b 검증용"
+ }
+}
