@@ -1,0 +1,19 @@
+{
+ "run_id": "wf_9971e46b-6d1",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.028,
+ "gzipped": false,
+ "pool_source": "/tmp/r3pool",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "wf_vs_v23.js",
+  "effort": "medium",
+  "N": 49,
+  "RUN_SEED": 91551371,
+  "note": "R3 v2.3 단일풀 — P0-3 영속화 데모"
+ }
+}
