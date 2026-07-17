@@ -5,7 +5,7 @@
 import os, json, random, argparse
 import numpy as np
 
-from harness_paths import SP
+from harness_paths import SP, run_dir
 N_PER = 100
 N_POOLS = 3
 
@@ -62,10 +62,14 @@ for k, seed in enumerate(pool_seeds):
         row["pool"] = k
         meta.append(row)
 
-json.dump(args, open(f"{SP}/multipool_args.json", "w"), ensure_ascii=False)
-json.dump(meta, open(f"{SP}/multipool_meta.json", "w"), ensure_ascii=False)
-json.dump({"pools": cfg_pools, "SAMPLE_SEED": SAMPLE_SEED, "N_PER": N_PER, "N_POOLS": N_POOLS,
-           "master_seed": MASTER_SEED},
-          open(f"{SP}/multipool_cfg.json", "w"))
+# 런 디렉토리 격리(P0-4): runs/<pool_id>/ 스코프 저장 + SP 사본(하위 호환)
+_pool_id = f"multipool_{SAMPLE_SEED}"
+_cfg = {"pools": cfg_pools, "SAMPLE_SEED": SAMPLE_SEED, "N_PER": N_PER, "N_POOLS": N_POOLS,
+        "master_seed": MASTER_SEED}
+for _d in (SP, run_dir(_pool_id, create=True)):
+    os.makedirs(_d, exist_ok=True)
+    json.dump(args, open(f"{_d}/multipool_args.json", "w"), ensure_ascii=False)
+    json.dump(meta, open(f"{_d}/multipool_meta.json", "w"), ensure_ascii=False)
+    json.dump(_cfg, open(f"{_d}/multipool_cfg.json", "w"))
 print(f"\n총 {len(args)}명 ({N_POOLS}풀×{N_PER}), SAMPLE_SEED={SAMPLE_SEED}")
 print(f"풀 시드: {pool_seeds}")

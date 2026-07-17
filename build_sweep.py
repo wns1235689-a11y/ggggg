@@ -6,7 +6,7 @@
 import os, json, random, argparse
 import numpy as np
 
-from harness_paths import SP
+from harness_paths import SP, run_dir
 N_PER = 30
 
 import sim.config as C
@@ -77,10 +77,14 @@ for cfg, (name, ovr) in SWEEPS.items():
         })
 
 C.LATENT_SPECS = BASE  # 복원
-json.dump(combined, open(f"{SP}/sweep_prof.json", "w"), ensure_ascii=False, separators=(",", ":"))
-json.dump({"meta": meta, "seeds": seeds, "names": {c: n for c, (n, _) in SWEEPS.items()},
-           "master_seed": master},
-          open(f"{SP}/sweep_meta.json", "w"), ensure_ascii=False)
+# 런 디렉토리 격리(P0-4): runs/<pool_id>/ 스코프 저장 + SP 사본(하위 호환)
+_pool_id = f"sweep_{master}"
+_meta_out = {"meta": meta, "seeds": seeds, "names": {c: n for c, (n, _) in SWEEPS.items()},
+             "master_seed": master}
+for _d in (SP, run_dir(_pool_id, create=True)):
+    os.makedirs(_d, exist_ok=True)
+    json.dump(combined, open(f"{_d}/sweep_prof.json", "w"), ensure_ascii=False, separators=(",", ":"))
+    json.dump(_meta_out, open(f"{_d}/sweep_meta.json", "w"), ensure_ascii=False)
 
 from collections import Counter
 print(f"총 {len(combined)}명 ({len(SWEEPS)}인구 × {N_PER})  master_seed={master}")

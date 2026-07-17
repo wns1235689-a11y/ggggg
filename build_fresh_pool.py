@@ -8,7 +8,7 @@
 import os, json, random
 import numpy as np
 
-from harness_paths import SP
+from harness_paths import SP, run_dir
 
 # ── 신규 시드/표본크기(엔트로피 기반, 이후 기록으로 재현) ──
 import argparse
@@ -87,9 +87,14 @@ for p in pool:
     })
     meta.append(p.row())  # pid, channel, S1_age..., is_target, is_student_seg, screenout_reason
 
-json.dump(prof, open(f"{SP}/prof.json", "w"), ensure_ascii=False)
-json.dump(meta, open(f"{SP}/pool_meta.json", "w"), ensure_ascii=False)
-json.dump({"N": N, "RUN_SEED": RUN_SEED}, open(f"{SP}/run_cfg.json", "w"))
+# 런 디렉토리 격리(P0-4): runs/<pool_id>/ 스코프 저장 + SP 사본(하위 호환)
+_pool_id = f"pool_{RUN_SEED}"
+_cfg = {"N": N, "RUN_SEED": RUN_SEED}
+for _d in (SP, run_dir(_pool_id, create=True)):
+    os.makedirs(_d, exist_ok=True)
+    json.dump(prof, open(f"{_d}/prof.json", "w"), ensure_ascii=False)
+    json.dump(meta, open(f"{_d}/pool_meta.json", "w"), ensure_ascii=False)
+    json.dump(_cfg, open(f"{_d}/run_cfg.json", "w"))
 
 s = sampler.summarize(pool)
 print(f"N={N}  RUN_SEED={RUN_SEED}")
