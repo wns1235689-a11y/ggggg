@@ -74,3 +74,24 @@ def diagnose(run_id: str):
     data["format"] = "v2.3"
     data["diagnosable"] = True
     return data
+
+
+@app.get("/api/runs/{run_id}/judge")
+def judge(run_id: str):
+    """방향성 판정(v23_judge/v23_multi_judge JSON). SPEC §5.3 판정 대시보드."""
+    r = store.get_run(run_id)
+    if r is None:
+        raise HTTPException(404, f"run 없음: {run_id}")
+    fmt = analysis.journal_format(run_id)
+    if fmt != "v2.3":
+        return {"run_id": run_id, "format": fmt, "judgeable": False,
+                "note": "v2.3(A2a_dist) 저널만 판정 대상."}
+    script = "v23_multi_judge.py" if r.get("kind") == "multipool" else "v23_judge.py"
+    try:
+        data = analysis.run_json_script(script, run_id)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    data["format"] = "v2.3"
+    data["kind"] = r.get("kind")
+    data["judgeable"] = True
+    return data
