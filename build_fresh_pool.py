@@ -8,7 +8,7 @@
 import os, json, random
 import numpy as np
 
-SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
+from harness_paths import SP
 
 # ── 신규 시드/표본크기(엔트로피 기반, 이후 기록으로 재현) ──
 seed_entropy = int.from_bytes(os.urandom(8), "big")

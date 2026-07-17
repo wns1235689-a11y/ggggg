@@ -6,7 +6,7 @@
 import json, sys, statistics
 from collections import Counter
 
-BASE = "/root/.claude/projects/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/subagents/workflows"
+from harness_paths import JOURNAL_BASE as BASE
 OLD, NEW = sys.argv[1], sys.argv[2]
 cat = json.loads(open('/tmp/args_dump.txt').read().split('\n')[4])
 TR = {p['pid']: p for p in cat}   # pid → 특성

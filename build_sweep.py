@@ -6,7 +6,7 @@
 import os, json, random
 import numpy as np
 
-SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
+from harness_paths import SP
 N_PER = 30
 
 import sim.config as C

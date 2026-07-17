@@ -7,7 +7,7 @@ robust(전 인구에서 동일 부호) vs fragile(뒤집힘)로 분류.
 import json, sys
 from collections import Counter, defaultdict
 
-SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
+from harness_paths import SP
 JOURNAL = sys.argv[1] if len(sys.argv) > 1 else None
 
 meta = json.load(open(f"{SP}/sweep_meta.json"))

@@ -8,10 +8,10 @@ import json, sys, statistics
 from collections import Counter
 import numpy as np
 
-SP = "/tmp/claude-0/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/scratchpad"
+from harness_paths import SP
 cfg = json.load(open(f"{SP}/multipool_cfg.json"))
 SSEED = cfg["SAMPLE_SEED"]
-BASE = "/root/.claude/projects/-home-user-ggggg/8fffd176-9027-5172-8858-c1238d2e4b2b/subagents/workflows"
+from harness_paths import JOURNAL_BASE as BASE
 RUNID = sys.argv[1]
 meta = {m["pid"]: m for m in json.load(open(f"{SP}/multipool_meta.json"))}
 lat = {a["pid"]: a for a in json.load(open(f"{SP}/multipool_args.json"))}
