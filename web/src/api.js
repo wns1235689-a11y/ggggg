@@ -23,9 +23,10 @@ export const api = {
   pool: (id) => j(`/api/pools/${id}`),
   design: () => j('/api/design'),
 
-  // 진단·판정·리포트
+  // 진단·판정·리포트·수용곡선
   diagnose: (id) => j(`/api/runs/${id}/diagnose`),
   judge: (id) => j(`/api/runs/${id}/judge`),
+  curve: (id) => j(`/api/runs/${id}/curve`),
   report: (id) => j(`/api/runs/${id}/report`),
 
   // 액션(실행 콘솔)

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import REPO_ROOT
-from . import store, design as design_mod, analysis, actions, report as report_mod
+from . import store, design as design_mod, analysis, actions, report as report_mod, curve as curve_mod
 import harness_paths as H
 
 app = FastAPI(title="Gate C Research Harness", version="0.1 (P2-1)")
@@ -97,6 +97,22 @@ def judge(run_id: str):
     data["format"] = "v2.3"
     data["kind"] = r.get("kind")
     data["judgeable"] = True
+    return data
+
+
+@app.get("/api/runs/{run_id}/curve")
+def curve(run_id: str):
+    """D1 가격-수용 곡선(서술적 read). SPEC §5.3 판정 대시보드의 수용곡선 차트.
+    판정 아님 — buy_ 평균만. 절대 높이 신뢰X(실측 몫), 기울기(방향)만 참고."""
+    if store.get_run(run_id) is None:
+        raise HTTPException(404, f"run 없음: {run_id}")
+    fmt = analysis.journal_format(run_id)
+    if fmt != "v2.3":
+        return {"run_id": run_id, "format": fmt, "available": False,
+                "note": "v2.3(A2a_dist) 저널만 D1 곡선 대상."}
+    data = curve_mod.d1_curve(run_id)
+    data["format"] = "v2.3"
+    data["available"] = not data.get("empty", False)
     return data
 
 
