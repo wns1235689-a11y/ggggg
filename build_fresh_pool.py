@@ -11,10 +11,15 @@ import numpy as np
 from harness_paths import SP
 
 # ── 신규 시드/표본크기(엔트로피 기반, 이후 기록으로 재현) ──
+import argparse
+_ap = argparse.ArgumentParser(description="게이트C 표본 풀 생성")
+_ap.add_argument("--seed", type=int, default=None, help="RUN_SEED 재주입(미지정 시 os.urandom)")
+_ap.add_argument("--n", type=int, default=None, help="표본크기 N 지정(미지정 시 44~53 무작위)")
+_args = _ap.parse_args()
 seed_entropy = int.from_bytes(os.urandom(8), "big")
 meta_rng = random.Random(seed_entropy)
-N = meta_rng.randint(44, 53)
-RUN_SEED = meta_rng.randint(10_000_000, 99_999_999)
+N = _args.n if _args.n is not None else meta_rng.randint(44, 53)
+RUN_SEED = _args.seed if _args.seed is not None else meta_rng.randint(10_000_000, 99_999_999)
 
 import sim.config as C
 C.GLOBAL_SEED = RUN_SEED          # 신규 표본 — 전체 파이프라인이 이 시드로 일관 재현

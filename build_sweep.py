@@ -3,7 +3,7 @@
 사전분포 스윕 — 심리 latent를 4개 상반된 인구로 광폭 변주(v1.5 인구프레임 유지).
 각 인구가 자기에게 불리한 방향까지 재현하면 robust, 뒤집히면 fragile로 판별하기 위한 표본 생성.
 """
-import os, json, random
+import os, json, random, argparse
 import numpy as np
 
 from harness_paths import SP
@@ -45,7 +45,13 @@ def seg(p):
     return "기타"
 
 
-master = int.from_bytes(os.urandom(8), "big")
+_ap = argparse.ArgumentParser(description="게이트C 사전분포 스윕 생성")
+_ap.add_argument("--seed", type=int, default=None, help="마스터 시드 재주입(cfg별 시드 결정론 파생; 미지정 시 os.urandom)")
+_ap.add_argument("--n", type=int, default=None, help="인구당 표본크기 N_PER(미지정 시 30)")
+_args = _ap.parse_args()
+if _args.n is not None:
+    N_PER = _args.n
+master = _args.seed if _args.seed is not None else int.from_bytes(os.urandom(8), "big")
 mrng = random.Random(master)
 seeds = {cfg: mrng.randint(10_000_000, 99_999_999) for cfg in SWEEPS}
 
@@ -72,7 +78,8 @@ for cfg, (name, ovr) in SWEEPS.items():
 
 C.LATENT_SPECS = BASE  # 복원
 json.dump(combined, open(f"{SP}/sweep_prof.json", "w"), ensure_ascii=False, separators=(",", ":"))
-json.dump({"meta": meta, "seeds": seeds, "names": {c: n for c, (n, _) in SWEEPS.items()}},
+json.dump({"meta": meta, "seeds": seeds, "names": {c: n for c, (n, _) in SWEEPS.items()},
+           "master_seed": master},
           open(f"{SP}/sweep_meta.json", "w"), ensure_ascii=False)
 
 from collections import Counter

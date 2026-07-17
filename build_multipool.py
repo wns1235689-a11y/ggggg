@@ -2,7 +2,7 @@
 """다른 풀 3종(각 N=100) 생성 — 매실청 깊이 반증의 풀-견고성 검정용.
    풀별 상이 시드로 latent 독립. pid를 풀별 오프셋(pool*1000+local)해 전역 유일화.
    출력: multipool_args.json(300, 워크플로), multipool_meta.json, multipool_cfg.json."""
-import os, json
+import os, json, random, argparse
 import numpy as np
 
 from harness_paths import SP
@@ -13,8 +13,20 @@ import sim.config as C
 from sim import sampler
 
 # 풀별 시드(엔트로피 기반, 기록으로 재현). 실현표집용 전역시드 1개 별도.
-pool_seeds = [int.from_bytes(os.urandom(4), "big") % 90_000_000 + 10_000_000 for _ in range(N_POOLS)]
-SAMPLE_SEED = int.from_bytes(os.urandom(4), "big") % 90_000_000 + 10_000_000
+_ap = argparse.ArgumentParser(description="게이트C 다풀 표본 생성")
+_ap.add_argument("--seed", type=int, default=None, help="마스터 시드 재주입(풀시드·SAMPLE_SEED 결정론 파생; 미지정 시 os.urandom)")
+_ap.add_argument("--n", type=int, default=None, help="풀당 표본크기 N_PER(미지정 시 100)")
+_args = _ap.parse_args()
+if _args.n is not None:
+    N_PER = _args.n
+MASTER_SEED = _args.seed
+if MASTER_SEED is not None:
+    _mrng = random.Random(MASTER_SEED)
+    pool_seeds = [_mrng.randint(10_000_000, 99_999_999) for _ in range(N_POOLS)]
+    SAMPLE_SEED = _mrng.randint(10_000_000, 99_999_999)
+else:
+    pool_seeds = [int.from_bytes(os.urandom(4), "big") % 90_000_000 + 10_000_000 for _ in range(N_POOLS)]
+    SAMPLE_SEED = int.from_bytes(os.urandom(4), "big") % 90_000_000 + 10_000_000
 
 AGE_LBL = {"19-24": "만 19–24", "25-29": "만 25–29", "30-34": "만 30–34",
            "35-39": "만 35–39", "40+": "40세 이상"}
@@ -52,7 +64,8 @@ for k, seed in enumerate(pool_seeds):
 
 json.dump(args, open(f"{SP}/multipool_args.json", "w"), ensure_ascii=False)
 json.dump(meta, open(f"{SP}/multipool_meta.json", "w"), ensure_ascii=False)
-json.dump({"pools": cfg_pools, "SAMPLE_SEED": SAMPLE_SEED, "N_PER": N_PER, "N_POOLS": N_POOLS},
+json.dump({"pools": cfg_pools, "SAMPLE_SEED": SAMPLE_SEED, "N_PER": N_PER, "N_POOLS": N_POOLS,
+           "master_seed": MASTER_SEED},
           open(f"{SP}/multipool_cfg.json", "w"))
 print(f"\n총 {len(args)}명 ({N_POOLS}풀×{N_PER}), SAMPLE_SEED={SAMPLE_SEED}")
 print(f"풀 시드: {pool_seeds}")
