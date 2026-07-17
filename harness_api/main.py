@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import REPO_ROOT
-from . import store, design as design_mod, analysis, actions
+from . import store, design as design_mod, analysis, actions, report as report_mod
 import harness_paths as H
 
 app = FastAPI(title="Gate C Research Harness", version="0.1 (P2-1)")
@@ -97,6 +97,16 @@ def judge(run_id: str):
     data["format"] = "v2.3"
     data["kind"] = r.get("kind")
     data["judgeable"] = True
+    return data
+
+
+@app.get("/api/runs/{run_id}/report")
+def report(run_id: str):
+    """리포트 자동 생성(게이트C_시뮬결과_정리.md 포맷). SPEC §5.4.
+    ⓪ 합성·비실측·인용불가 경고 헤더는 하드코딩·항상 포함(끌 수 없음)."""
+    data = report_mod.report(run_id)
+    if data is None:
+        raise HTTPException(404, f"run 없음: {run_id}")
     return data
 
 
