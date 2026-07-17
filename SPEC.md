@@ -1,0 +1,98 @@
+# SPEC.md — Research Harness UI 구축 사양서
+
+> **지위**: 이 문서는 INVENTORY.md와 함께 모든 빌드 세션의 기준 문서다. 두 문서가 충돌하면 SPEC이 우선하되, 충돌 발견 시 작업 중단 후 보고.
+> **전제**: 작업 전 INVENTORY.md 전체를 읽을 것. 본 문서의 §참조 표기는 INVENTORY.md의 섹션이다.
+> **기준 브랜치**: `claude/simulation-survey-planning-d9rlih`
+
+---
+
+## 0. 제품 정체성
+
+- **무엇**: LLM 합성 설문 시뮬레이션 엔진(게이트 C에서 검증됨) 위에 얹는 **개인용 research harness** — 로컬 웹 UI.
+- **유저**: 소유자 1인. 배포·계정·클라우드 없음. 상업화 없음.
+- **목적**: 현재 수동 CLI + 세션 의존으로 수행하는 워크플로(풀 생성 → 스윕/시뮬 → 진단 → 판정 → 리포트)를 재현 가능하고 유실 없는 반복 도구로 승격.
+- **비목적(명시)**: 공개 SaaS 아님. 크롤링/외부 데이터 수집 기능 없음. 엔진 로직(프롬프트·스키마·통계) 재작성 아님.
+
+## 1. 아키텍처 (확정)
+
+```
+[브라우저: 로컬 웹 UI (React/Vite)]
+        │ HTTP (localhost)
+[얇은 백엔드 (FastAPI)]
+        ├── python 서브프로세스: 풀 생성·진단·판정 스크립트 직접 실행
+        ├── Claude Code 서브프로세스: wf_*.js 시뮬 실행 (러너, §4)
+        └── 파일 저장소: runs/ (git 추적, §3)
+```
+
+- **시뮬 실행은 Claude Code 서브프로세스 방식**(INVENTORY §5.1 선택지 ①). ClaudeBackend 이식(선택지 ②)은 기각 — 검증된 실행 경로를 벗어나며 구조화 출력·병렬·재시도 재구현이 별도 프로젝트가 됨.
+- DB 없음. 상태는 전부 `runs/` 파일. 서버는 단일 유저 전제(동시성 설계 불요, 단 §2-P0-5 전역상태 오염은 수정).
+
+## 2. 계보 경계 (확정 — 이 목록이 유일한 기준)
+
+### 현행 계보 (Phase 0 수정 허용 대상)
+| 역할 | 파일 |
+|---|---|
+| 풀 생성 | build_fresh_pool.py, build_multipool.py, build_sweep.py |
+| 공유 라이브러리 | sim/config.py, sim/sampler.py (위 3종이 의존하는 범위만) |
+| 시뮬 실행 | wf_vs_v23.js, wf_v23_multi.js |
+| 진단 | vs_verify.py, vs_compare.py |
+| 판정 | v23_analyze.py, v23_multi_analyze.py, analyze_sweep.py |
+
+### 레거시 동결 (읽기만 가능, 수정·삭제·이동 금지)
+- 구형 wf: wf_precise_survey.js, wf_vs_dist.js, wf_vs_d1.js, wf_vs_cat.js, wf_e1_dist.js, wf_vs_all.js, wf_fidelity.js
+- 구형 경로 후처리: extract_raw.py, map_and_ingest.py, patch_vs.py, patch_e1.py, patch_e2.py
+- 일회성 실험: e2_refine*.py 전부
+- 구세대 풀: build_oversample.py
+- 구형 산출: build_xlsx.py, build_sweep_xlsx.py
+- 미검증 A경로: run.py, run_live.py, sim/backends.py, sim/respondent.py, sim/aggregate.py, sim/report.py, sim/linter.py, sim/ingest.py
+- 레거시 파일은 지우지 않는다. 루트에 `LEGACY.md` 한 장을 만들어 위 목록과 "역사적 아티팩트 — v2.3 이전 버전 계보" 사유만 기록.
+
+## 3. Phase 0 — 배관 (엔진 무수정 원칙의 유일한 예외)
+
+**예외의 정확한 범위**: 현행 계보에 한해 경로·시드·입출력의 파라미터화만 허용. **프롬프트 문구, JSON 스키마, 통계 로직, 판정 임계값, 표집 salt는 1글자도 변경 금지.** 변경이 불가피해 보이면 중단 후 보고.
+
+| # | 작업 | 내용 | 근거 |
+|---|---|---|---|
+| P0-1 | 경로 config 모듈 | `harness_paths.py` 신설: SP·저널BASE·runs/ 경로를 환경변수(기본값 포함)로 일원화. 현행 계보 py의 하드코딩 경로(§4a)를 이 모듈 참조로 치환. **레거시 파일은 건드리지 않음** | §4a, §5.1-3 |
+| P0-2 | 시드 재주입 CLI | build_fresh_pool·build_multipool·build_sweep에 `--seed`(및 필요 시 `--n`) 인자 추가. 미지정 시 기존 os.urandom 동작 유지. 기록된 시드 재주입 → bit-identical 풀 재생성 확인 | §5.2 |
+| P0-3 | 저널 영속화 | 시뮬 종료 직후 journal.jsonl + 해당 런의 풀 파일(prof/meta/cfg) + 실행 파라미터를 `runs/<run_id>/`로 복사하는 함수/스크립트. 20MB 초과 저널은 gzip | §5.1-3, §5.2 |
+| P0-4 | 런 디렉토리 격리 | 풀 생성 산출물을 SP 공유 파일 덮어쓰기 대신 `runs/<pool_id>/` 스코프로 저장(하위 호환: SP에도 사본 유지 가능) — run_cfg 덮어쓰기 경쟁 제거 | §5.1-4 |
+| P0-5 | 전역상태 안전화 | 현행 계보의 `C.GLOBAL_SEED`/`C.LATENT_SPECS` 덮어쓰기를 try/finally 복원 패턴으로 감쌈 | §5.1-2 |
+| P0-6 | vs_compare 입력 정식화 | `/tmp/args_dump.txt` 의존 제거 → 정식 파일 인자(multipool_args 형식 또는 runs/ 내 풀 파일)로 교체 | §2.2, [불명확#4] |
+| P0-7 | personas 주입 복원 | wf_vs_v23.js·wf_v23_multi.js의 baked JSON 리터럴을 args 주입 방식으로 전환(구형 wf의 args 패턴 재사용). **프롬프트·스키마는 그대로** | §4b, §1.0 |
+
+**P0 완료 기준**: ① 새 환경(경로 무관)에서 현행 계보가 경로 에러 없이 동작 ② 기록된 시드로 풀 bit-identical 재현 확인 ③ 기존 저널 1개(R3 또는 R4)를 runs/로 이관해 v23_analyze가 runs/ 경로에서 정상 판정 출력 ④ 레거시 파일 diff 0줄.
+
+## 4. Phase 1 — 러너 (Claude Code 서브프로세스 래퍼)
+
+**계약**:
+- 입력: `{script: wf_vs_v23.js | wf_v23_multi.js, pool_id, effort, dry_run: bool, n_limit: int|null}`
+- 동작: Claude Code CLI를 서브프로세스로 구동해 Workflow 실행 → 런ID 획득 → 저널 회수 → P0-3 영속화 호출 → 상태/로그 스트림 반환
+- 출력: `{run_id, journal_path(runs/ 내), status, token_estimate, log}`
+
+**비용 가드(필수)**: ① `dry_run=true`면 N≤2로 강제 축소 실행(파이프라인 검증용) ② 실행 전 예상 규모(페르소나 수×문항)를 UI에 표시하고 확인 없이는 N>50 실행 불가 ③ 러너가 임의로 재실행/재시도로 대량 토큰을 태우지 않도록 자동 재시도는 에이전트 단위 1회 상한.
+
+**P1 완료 기준**: dry_run 스모크 테스트(N=2)로 실행→저널→runs/ 저장→v23_analyze 판정까지 무개입 완주.
+
+## 5. Phase 2 — UI (화면 4+1, 이 목록이 상한)
+
+공통: 모든 화면은 `runs/`의 파일을 읽어 렌더. UI가 자체 상태를 만들지 않음.
+
+1. **실행 콘솔** — 풀 생성(시드·N 입력, P0-2 CLI 호출) / 시뮬 실행(러너 호출, 비용 가드 UI) / 단계별 실행 버튼(풀→시뮬→진단→판정 각각 독립). 실행 로그 스트림. 런 히스토리 테이블(runs/ 스캔: run_id, 일시, N, effort, 시드).
+2. **진단 패널** — 선택한 런에 vs_verify·vs_compare 로직 적용: 보기 사용률, 믿음질량 vs realized, 최빈패턴 점유율(동질성), 붕괴 3종 체크. 임계 초과 시 경고 배지 + 처방 문구(effort 상향/조건화 강화 — 게이트C 문서 §2c의 처방을 그대로 노출).
+3. **판정 대시보드** — v23_analyze·v23_multi_analyze 출력 파싱: 연속상관표(부호·유의도), 다풀 부호일관, 세그교차(n<15 소표본 경고 자동), dose-response, D1 수용곡선 차트. 각 신호에 등급 라벨(sim-내 견고 / 참고 / 신뢰불가) — 게이트C 문서 §⑨ 등급 체계 준수.
+4. **리포트 내보내기** — 게이트C_시뮬결과_정리.md 포맷의 자동 생성(런 데이터 채움). **⓪ 경고 헤더(합성·비실측·인용불가)는 하드코딩으로 항상 포함, 비활성화 옵션 자체를 만들지 않음.**
+5. **설계 뷰어 (읽기 전용)** — 현행 v2.3 문항·보기·페르소나 latent 스펙·ANCHOR_PRIORS를 코드에서 파싱해 표시. **편집 기능 없음(v2로 명시 이연).**
+
+**P2 완료 기준**: 기존 runs/ 데이터(이관된 R3/R4)가 4개 화면에 정상 표시 + dry_run 신규 런이 콘솔에서 트리거되어 진단·판정까지 화면에서 확인 가능.
+
+## 6. 스코프 울타리 (전 Phase 공통)
+
+1. 레거시 동결 — §2 목록 외 수정 금지. 2. 화면 5개 초과 금지, 문항 편집 UI 금지(v2). 3. 배포·인증·클라우드·DB 금지. 4. 엔진 로직(프롬프트·스키마·통계·임계값·salt) 불변 — P0 예외 범위 엄수. 5. LLM 대량 실행은 명시적 사용자 확인 후에만(비용 가드 §4). 6. 각 Phase 완료 기준 충족 → 커밋 → 다음 Phase. Phase 건너뛰기 금지.
+
+## 7. 세션 운영 규칙 (빌드 세션용)
+
+- 세션 시작 시 INVENTORY.md + SPEC.md + LEGACY.md(생성 후) 읽기.
+- Phase 단위 커밋: `p0: <작업>`, `p1: <작업>`, `p2: <화면>` 프리픽스.
+- 막히면(특히 [불명확] 7건 관련) 임의 추측으로 우회하지 말고 질문으로 중단.
+- 각 Phase 완료 시 완료 기준 체크 결과를 표로 보고.
