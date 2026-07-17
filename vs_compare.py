@@ -8,7 +8,8 @@ from collections import Counter
 
 from harness_paths import JOURNAL_BASE as BASE
 OLD, NEW = sys.argv[1], sys.argv[2]
-cat = json.loads(open('/tmp/args_dump.txt').read().split('\n')[4])
+_poolfile = sys.argv[3]  # 풀 파일(prof.json 또는 multipool_args.json 형식: pid+latent 리스트) — args_dump.txt 의존 제거(P0-6)
+cat = json.load(open(_poolfile))
 TR = {p['pid']: p for p in cat}   # pid → 특성
 
 
