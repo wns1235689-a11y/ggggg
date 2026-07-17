@@ -28,6 +28,19 @@ def _pool_dirs():
     return [d for d in os.listdir(H.RUNS_DIR) if d.startswith(POOL_PREFIXES)]
 
 
+def _pool_touch(d):
+    """풀 dir + 내부 파일의 최신 mtime. 디렉토리 mtime은 기존 파일을 덮어써도
+    안 바뀌므로(동일 시드 재생성), 내부 파일까지 봐야 '방금 쓴' 풀을 고를 수 있다."""
+    full = os.path.join(H.RUNS_DIR, d)
+    t = os.path.getmtime(full)
+    try:
+        for f in os.listdir(full):
+            t = max(t, os.path.getmtime(os.path.join(full, f)))
+    except OSError:
+        pass
+    return t
+
+
 def gen_pool(kind, seed=None, n=None):
     if kind not in BUILD:
         raise ValueError(f"kind는 {list(BUILD)} 중 하나 (받음: {kind})")
@@ -42,14 +55,13 @@ def gen_pool(kind, seed=None, n=None):
     p = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, env=env, timeout=180)
     if p.returncode != 0:
         raise RuntimeError(f"풀 생성 실패(rc={p.returncode}): {(p.stderr or '')[-600:]}")
-    new = sorted(set(_pool_dirs()) - before,
-                 key=lambda d: os.path.getmtime(os.path.join(H.RUNS_DIR, d)))
+    new = set(_pool_dirs()) - before
     if new:
-        pool_id = new[-1]
+        pool_id = max(new, key=_pool_touch)                 # 신규 dir 중 방금 쓴 것
     else:
-        # 동일 시드 재생성(새 dir 없음) → 최신 풀 dir로 폴백
-        allp = sorted(_pool_dirs(), key=lambda d: os.path.getmtime(os.path.join(H.RUNS_DIR, d)))
-        pool_id = allp[-1] if allp else None
+        # 동일 시드 재생성(새 dir 없음) → 내부 파일 mtime 최신 = 방금 재생성한 풀
+        allp = _pool_dirs()
+        pool_id = max(allp, key=_pool_touch) if allp else None
     return {"pool_id": pool_id, "kind": kind, "seed": seed, "n": n,
             "summary": (p.stdout or "").strip().splitlines()}
 
@@ -59,12 +71,42 @@ def _jobrec_path(job_id):
     return os.path.join(JOBS_DIR, f"{job_id}.json")
 
 
-def _pid_alive(pid):
+def _pid_running(pid):
+    """살아있고 '실행 중'이면 True. 좀비(Z)/종료(X)는 False.
+    러너는 uvicorn이 Popen한 자식이라 종료 후 reap 전까지 좀비로 남는데,
+    os.kill(zombie,0)은 성공을 반환하므로 /proc 상태로 좀비를 구분한다.
+    가능하면 waitpid(WNOHANG)로 좀비를 수확(같은 프로세스의 자식일 때만 유효)."""
     try:
         os.kill(pid, 0)
-        return True
     except OSError:
         return False
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+            state = f.read().rsplit(")", 1)[1].split()[0]
+        if state in ("Z", "X", "x"):
+            try:
+                os.waitpid(pid, os.WNOHANG)   # 좀비 수확(자식이면), 실패는 무시
+            except OSError:
+                pass
+            return False
+    except OSError:
+        pass  # /proc 없음 → os.kill 성공만으로 살아있다고 간주
+    return True
+
+
+def _read_out_json(out_path):
+    """러너가 종료 직전 stdout에 낸 종료 JSON(dict) — 없거나 미완이면 None."""
+    try:
+        txt = open(out_path, encoding="utf-8").read().strip()
+    except OSError:
+        return None
+    if not txt:
+        return None
+    try:
+        obj = json.loads(txt)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
 
 
 def start_run(script, pool_id, effort="medium", dry_run=False, n_limit=None, confirm_large=False):
@@ -101,27 +143,35 @@ def get_job(job_id):
     rec = json.load(open(recf))
     if rec.get("status") in ("completed", "failed"):
         return rec                                   # 종료 상태 확정본
-    if _pid_alive(rec["pid"]):
+
+    out_path = os.path.join(JOBS_DIR, rec["out"])
+    result = _read_out_json(out_path)
+
+    # ① 러너가 종료 JSON을 냈으면 그게 확정 신호(좀비 pid와 무관) —
+    #    러너는 stdout에 종료 JSON을 정확히 1회 출력하고 종료한다.
+    if result is not None and "status" in result:
+        done = result.get("status") == "completed" and result.get("run_id")
+        rec["status"] = "completed" if done else "failed"
+        rec["result"] = result
+        if not done:
+            try:
+                rec["stderr_tail"] = open(os.path.join(JOBS_DIR, rec["err"]), encoding="utf-8").read()[-800:]
+            except OSError:
+                pass
+        json.dump(rec, open(recf, "w"), ensure_ascii=False)
+        return rec
+
+    # ② 종료 JSON 아직 없음 — 프로세스가 실제 실행 중이면 running
+    if _pid_running(rec["pid"]):
         rec["status"] = "running"
         return rec
-    # 프로세스 종료 — 러너 JSON 회수
-    out_path = os.path.join(JOBS_DIR, rec["out"])
-    result, parse_err = None, None
+
+    # ③ 프로세스는 끝났는데 유효한 종료 JSON이 없음 → 실패(크래시)
+    rec["status"] = "failed"
     try:
-        txt = open(out_path, encoding="utf-8").read().strip()
-        result = json.loads(txt) if txt else None
-    except Exception as e:
-        parse_err = str(e)
-    rec["status"] = "completed" if result and result.get("run_id") else "failed"
-    if result:
-        rec["result"] = result
-    if parse_err:
-        rec["parse_error"] = parse_err
-    if rec["status"] == "failed":
-        try:
-            rec["stderr_tail"] = open(os.path.join(JOBS_DIR, rec["err"]), encoding="utf-8").read()[-800:]
-        except Exception:
-            pass
+        rec["stderr_tail"] = open(os.path.join(JOBS_DIR, rec["err"]), encoding="utf-8").read()[-800:]
+    except OSError:
+        pass
     json.dump(rec, open(recf, "w"), ensure_ascii=False)
     return rec
 

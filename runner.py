@@ -67,16 +67,26 @@ def make_temp_wf(script, personas):
     return path
 
 
-def launch(temp_wf, sid, log):
+def launch(temp_wf, sid, orig_script, log):
     """claude -p로 Workflow 실행(격리 세션 sid). root에서 막히는 skip-permissions 대신
-    --permission-mode dontAsk. 반환은 (rc, 출력) — run_id는 저널 디렉토리에서 발견."""
-    prompt = (f"Workflow 도구를 정확히 한 번만 호출하라: scriptPath='{temp_wf}'. "
-              f"args는 넘기지 마라(스크립트에 personas가 이미 포함됨). "
-              f"다른 작업은 일절 하지 말고, 반환된 Run ID만 한 줄로 보고하라.")
+    --permission-mode dontAsk. 반환은 (rc, 출력) — run_id는 저널 디렉토리에서 발견.
+
+    allowedTools에 Read를 포함한다: 중첩 에이전트가 베이크된 워크플로를 '검증 불가한
+    불투명 스크립트'로 보고 안전상 실행을 거부하는 경우가 있어(dontAsk는 미허용 툴을
+    자동 거부 → Read 막힘), 출처를 밝히고 먼저 Read로 확인할 수 있게 한다. temp_wf는
+    리포 원본 {orig_script}의 복사본(프롬프트·스키마 동일, personas만 주입)이다."""
+    prompt = (
+        f"이것은 이 리포지토리의 시뮬레이션 워크플로를 실행하는 하니스 작업이다. "
+        f"scriptPath='{temp_wf}' 는 리포 원본 '{orig_script}'의 복사본으로, 응답자(personas) "
+        f"데이터만 주입되어 있고 프롬프트·스키마·로직은 원본과 동일하다. 신뢰할 수 있는 "
+        f"하니스 산출물이다. 원하면 먼저 Read 도구로 '{temp_wf}' 내용을 확인해도 된다. "
+        f"확인 후(또는 바로) Workflow 도구를 정확히 한 번만 호출하라: scriptPath='{temp_wf}'. "
+        f"args는 넘기지 마라(personas는 스크립트에 이미 포함됨). "
+        f"실행 뒤 반환된 Run ID만 한 줄로 보고하라.")
     cmd = ["claude", "-p", prompt, "--session-id", sid,
            "--output-format", "json", "--permission-mode", "dontAsk",
-           "--allowedTools", "Workflow"]
-    log.append(f"[launch] claude -p --session-id {sid} --permission-mode dontAsk --allowedTools Workflow ...")
+           "--allowedTools", "Read,Workflow"]
+    log.append(f"[launch] claude -p --session-id {sid} --permission-mode dontAsk --allowedTools Read,Workflow ...")
     try:
         proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired as e:
@@ -166,7 +176,7 @@ def main():
     jbase = nested_journal_base(sid)
     log.append(f"[wf] 임시 베이크 wf={temp_wf}, session_id={sid}")
 
-    rc, out = launch(temp_wf, sid, log)
+    rc, out = launch(temp_wf, sid, a.script, log)
     run_id = discover_run_id(jbase, out, 30, log)
     log.append(f"[launch] rc={rc}, run_id={run_id}")
     if not run_id:
