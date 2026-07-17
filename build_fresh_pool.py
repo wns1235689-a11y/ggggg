@@ -22,10 +22,14 @@ N = _args.n if _args.n is not None else meta_rng.randint(44, 53)
 RUN_SEED = _args.seed if _args.seed is not None else meta_rng.randint(10_000_000, 99_999_999)
 
 import sim.config as C
+_C_SEED_SAVE = C.GLOBAL_SEED
 C.GLOBAL_SEED = RUN_SEED          # 신규 표본 — 전체 파이프라인이 이 시드로 일관 재현
 from sim import sampler
 
-pool = sampler.build_pool(N)
+try:
+    pool = sampler.build_pool(N)
+finally:
+    C.GLOBAL_SEED = _C_SEED_SAVE   # 전역상태 복원(P0-5)
 
 # ── 원 라벨(설문설계 §2 정확 문자열) ──
 A2_FULL = ["고수 등 향신료 향이 부담스러워서", "피시소스 등 낯선 소스·재료가 부담스러워서",

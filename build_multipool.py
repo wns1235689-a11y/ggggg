@@ -37,8 +37,12 @@ S5_LBL = {"있다": "있다", "없다": "없다"}
 
 args, meta, cfg_pools = [], [], []
 for k, seed in enumerate(pool_seeds):
+    _C_SEED_SAVE = C.GLOBAL_SEED
     C.GLOBAL_SEED = seed
-    pool = sampler.build_pool(N_PER)
+    try:
+        pool = sampler.build_pool(N_PER)
+    finally:
+        C.GLOBAL_SEED = _C_SEED_SAVE   # 전역상태 복원(P0-5)
     s = sampler.summarize(pool)
     cfg_pools.append({"pool": k, "seed": seed, "N": N_PER,
                       "target": s["n_target(§3-1)"], "target_rate": s["target_rate"]})

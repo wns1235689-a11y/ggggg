@@ -57,10 +57,16 @@ seeds = {cfg: mrng.randint(10_000_000, 99_999_999) for cfg in SWEEPS}
 
 combined, meta = [], {}
 for cfg, (name, ovr) in SWEEPS.items():
+    _SPECS_SAVE = C.LATENT_SPECS
+    _SEED_SAVE = C.GLOBAL_SEED
     C.LATENT_SPECS = dict(BASE)
     C.LATENT_SPECS.update(ovr)
     C.GLOBAL_SEED = seeds[cfg]
-    pool = sampler.build_pool(N_PER)
+    try:
+        pool = sampler.build_pool(N_PER)
+    finally:
+        C.LATENT_SPECS = _SPECS_SAVE   # 전역상태 복원(P0-5)
+        C.GLOBAL_SEED = _SEED_SAVE
     for p in pool:
         L = p.latent
         pid = cfg * 100 + p.pid
