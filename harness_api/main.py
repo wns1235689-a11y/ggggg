@@ -5,11 +5,14 @@
 모든 상태는 runs/ 파일. DB 없음. 엔진 코드는 읽기만.
 실행:  uvicorn harness_api.main:app --port 8781   (repo 루트에서)
 """
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from . import REPO_ROOT
-from . import store, design as design_mod, analysis
+from . import store, design as design_mod, analysis, actions
 import harness_paths as H
 
 app = FastAPI(title="Gate C Research Harness", version="0.1 (P2-1)")
@@ -95,3 +98,57 @@ def judge(run_id: str):
     data["kind"] = r.get("kind")
     data["judgeable"] = True
     return data
+
+
+# ── 액션(SPEC §5.1 실행 콘솔) ──
+class PoolReq(BaseModel):
+    kind: str = "single"           # single | multipool | sweep
+    seed: Optional[int] = None
+    n: Optional[int] = None
+
+
+class RunReq(BaseModel):
+    script: str                    # wf_vs_v23.js | wf_v23_multi.js
+    pool_id: str
+    effort: str = "medium"
+    dry_run: bool = False
+    n_limit: Optional[int] = None
+    confirm_large: bool = False
+
+
+@app.post("/api/pools")
+def create_pool(req: PoolReq):
+    """풀 생성(동기) — build_* 실행 → runs/<pool_id>/."""
+    try:
+        return actions.gen_pool(req.kind, seed=req.seed, n=req.n)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/runs")
+def create_run(req: RunReq):
+    """시뮬 실행 트리거(백그라운드 잡). 비용 가드는 runner.py가 강제.
+    반환된 job_id를 /api/jobs/{job_id}로 폴링."""
+    if store.get_pool(req.pool_id) is None and store.get_run(req.pool_id) is None:
+        raise HTTPException(404, f"pool/run 없음: {req.pool_id}")
+    try:
+        return actions.start_run(req.script, req.pool_id, effort=req.effort,
+                                 dry_run=req.dry_run, n_limit=req.n_limit,
+                                 confirm_large=req.confirm_large)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/jobs")
+def jobs():
+    return {"jobs": actions.list_jobs()}
+
+
+@app.get("/api/jobs/{job_id}")
+def job_detail(job_id: str):
+    j = actions.get_job(job_id)
+    if j is None:
+        raise HTTPException(404, f"job 없음: {job_id}")
+    return j

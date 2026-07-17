@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 out/
 .venv/
+
+# Research Harness UI 런타임 산출(비커밋)
+runs/_jobs/
+runs/_sp/
+runs/_tmp_runs/
