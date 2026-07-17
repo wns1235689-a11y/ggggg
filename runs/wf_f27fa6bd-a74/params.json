@@ -1,0 +1,20 @@
+{
+ "run_id": "wf_f27fa6bd-a74",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.001,
+ "gzipped": false,
+ "pool_source": "/home/user/ggggg/runs/wf_9971e46b-6d1",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "wf_vs_v23.js",
+  "pool_id": "wf_9971e46b-6d1",
+  "effort": "medium",
+  "dry_run": true,
+  "N": 2,
+  "session_id": "f46f6c29-9f3e-4b39-9667-cea79e887828"
+ }
+}
