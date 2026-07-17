@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { api } from './api.js'
+import { RunContext } from './runContext.js'
 import Console from './screens/Console.jsx'
 import Diagnose from './screens/Diagnose.jsx'
 import Judge from './screens/Judge.jsx'
@@ -14,9 +15,6 @@ const TABS = [
   { key: 'report', label: '리포트', el: Report },
   { key: 'design', label: '설계 뷰어', el: Design },
 ]
-
-// 선택된 런은 화면 간 공유(진단·판정·리포트가 같은 런을 봄).
-export const RunContext = React.createContext({ runId: null, setRunId: () => {} })
 
 export default function App() {
   const [tab, setTab] = useState('console')
