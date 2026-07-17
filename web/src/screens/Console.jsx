@@ -7,7 +7,11 @@ import RunPicker from '../components/RunPicker.jsx'
 // 실행 콘솔 — SPEC §5.1. 풀 생성(동기) / 시뮬 실행(백그라운드 잡·비용 가드) /
 // 잡 현황 / 런 히스토리. 단계별(풀→시뮬→진단→판정) 독립 — 진단·판정은 각 탭에서.
 const SCRIPT_FOR = { single: 'wf_vs_v23.js', multipool: 'wf_v23_multi.js', sweep: 'wf_vs_v23.js' }
-const LARGE_N = 50 // runner.py의 대규모 가드와 동일 기준(표시용)
+// runner.py와 동일 상수(예상 규모·가드 표시용) — 값 변경 시 runner.py와 동기 유지.
+const LARGE_N = 50               // runner.py LARGE_N
+const DRY_RUN_CAP = 2            // runner.py DRY_RUN_CAP
+const PER_PERSONA_TOKENS = 24000 // runner.py PER_PERSONA_TOKENS(관측 대략치)
+const QUESTIONS_V23 = 13         // v2.3 문항 수(설계 뷰어와 동일)
 
 export default function Console() {
   const [poolsKey, setPoolsKey] = useState(0)     // 풀 생성 후 목록 갱신 트리거
@@ -85,8 +89,13 @@ function RunTrigger({ poolsKey, onStarted }) {
   const pools = data?.pools || []
   const sel = pools.find((p) => p.pool_id === poolId)
   const script = sel ? (SCRIPT_FOR[sel.kind] || 'wf_vs_v23.js') : ''
-  const effN = sel?.N
-  const large = !dryRun && typeof effN === 'number' && effN > LARGE_N
+  // 실효 규모: 다풀은 N_per × 풀수, dry-run이면 DRY_RUN_CAP로 축소(러너와 동일).
+  const perPool = sel?.N
+  const nPools = sel?.N_pools || 1
+  const fullN = typeof perPool === 'number' ? perPool * nPools : undefined
+  const effPersonas = fullN == null ? undefined : (dryRun ? Math.min(fullN, DRY_RUN_CAP) : fullN)
+  const estTokens = effPersonas == null ? undefined : effPersonas * PER_PERSONA_TOKENS
+  const large = !dryRun && typeof fullN === 'number' && fullN > LARGE_N
   const blocked = !poolId || (large && !confirmLarge)
 
   const start = async () => {
@@ -122,19 +131,29 @@ function RunTrigger({ poolsKey, onStarted }) {
         <button className="action" onClick={start} disabled={busy || blocked}>{busy ? '트리거 중…' : '시뮬 실행'}</button>
       </div>
 
+      {/* 실행 전 예상 규모(SPEC §4 비용가드②) — 러너 견적과 동일 산식 */}
+      {sel && effPersonas != null && (
+        <div style={{ marginTop: 8, fontSize: 12 }} className="muted">
+          예상 규모: <b>{effPersonas.toLocaleString()}</b>명 × {QUESTIONS_V23}문항 · 1에이전트/명 ·
+          예상 토큰 <b>~{estTokens.toLocaleString()}</b>
+          {dryRun && fullN > DRY_RUN_CAP && <> <span className="badge ok">dry-run 축소 {fullN.toLocaleString()}→{DRY_RUN_CAP}명</span></>}
+          {nPools > 1 && <> <span className="muted">(다풀 {perPool}명×{nPools}풀)</span></>}
+        </div>
+      )}
+
       {/* 비용 가드 UI — runner.py가 강제하는 기준을 미리 표시 */}
-      <div style={{ marginTop: 8, fontSize: 12 }}>
+      <div style={{ marginTop: 6, fontSize: 12 }}>
         {dryRun
-          ? <span className="badge ok">dry-run · 2명만 실행(비용 최소)</span>
+          ? <span className="badge ok">dry-run · {DRY_RUN_CAP}명만 실행(비용 최소)</span>
           : large
             ? <>
-                <span className="badge warn">대규모 N={effN} &gt; {LARGE_N}</span>{' '}
+                <span className="badge warn">대규모 N={fullN} &gt; {LARGE_N}</span>{' '}
                 <label style={{ display: 'inline', color: 'var(--warn)' }}>
                   <input type="checkbox" checked={confirmLarge} onChange={(e) => setConfirmLarge(e.target.checked)} /> 대규모 실행 확인(confirm_large)
                 </label>
                 {!confirmLarge && <span className="muted"> — 확인 없으면 러너가 거부.</span>}
               </>
-            : <span className="muted">실비용 실행(N={dash(effN)}).</span>}
+            : <span className="muted">실비용 실행(N={dash(fullN)}).</span>}
       </div>
 
       {err && <p className="err">트리거 실패: {err}</p>}

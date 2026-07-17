@@ -32,8 +32,14 @@ test('풀 생성(실제) + 비용 가드 UI', async ({ page }) => {
   // 스크립트 자동(single → wf_vs_v23.js)
   await expect(runPanel.locator('input[readonly]')).toHaveValue('wf_vs_v23.js')
 
-  // dry-run 기본 ON → 2명 배지
+  // 실행 전 예상 규모 표시(SPEC §4 비용가드②) — dry-run이면 2명으로 축소
+  await expect(runPanel).toContainText('예상 규모')
+  await expect(runPanel).toContainText('문항')
+  await expect(runPanel).toContainText('예상 토큰')
+
+  // dry-run 기본 ON → 2명 배지 + 축소 표시(53→2)
   await expect(runPanel).toContainText('dry-run · 2명만')
+  await expect(runPanel).toContainText('53→2')
 
   // dry-run OFF → 대규모 경고 + confirm 필요, 실행 버튼 비활성
   await runPanel.getByRole('checkbox').first().uncheck()
