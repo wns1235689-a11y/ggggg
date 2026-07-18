@@ -91,7 +91,13 @@ function DiagnoseResult({ runId }) {
       {warnings.length > 0 ? (
         <div className="panel" style={{ borderColor: '#6b4f0a' }}>
           <h3 style={{ color: 'var(--warn)' }}>⚠ 경고 배지</h3>
-          <ul>{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          <ul>{warnings.map((w, i) => (
+            <li key={i}>
+              {typeof w === 'string'
+                ? w
+                : <><b>{w.message}</b>{w.prescription ? <> — 처방: {w.prescription}</> : null}</>}
+            </li>
+          ))}</ul>
           <p className="muted" style={{ fontSize: 12 }}>
             처방(게이트C §2c): effort 상향(low→medium) · 특성 등급 5단계 · 특성-조건화 프롬프트 강화.
           </p>
