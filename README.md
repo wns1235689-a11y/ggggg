@@ -1,3 +1,11 @@
+> **작업 기준 브랜치: `claude/runner-md-guide-89tnrn`**
+> 기준 문서 4종(INVENTORY · SPEC · INSPECTION · RUNNER)과 구현 전체가 이 브랜치에 있다.
+> `claude/simulation-survey-planning-d9rlih`는 이 브랜치의 **조상으로 동결**된 planning trunk다(직접 작업 금지).
+>
+> **임무 완료 조건**: 이후 새 세션이 새 브랜치를 따서 작업하는 경우, 작업을 마친 뒤 그 결과를 이 기준 브랜치(`claude/runner-md-guide-89tnrn`)로 **머지하는 것까지**가 임무 완료다. 새 브랜치만 푸시하고 종료하면 미완료로 간주한다.
+
+---
+
 # 게이트 C — 합성 시뮬레이션 설문 프로젝트
 
 냉동 간편식 컨셉('매실청 팟타이') 수요검증 설문(게이트 C)을 **LLM 기반 합성 시뮬레이션**으로 돌려, 현실 설문에 최대한 가까운 결과를 얻기 위한 작업 공간.
