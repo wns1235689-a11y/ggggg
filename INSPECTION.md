@@ -1,7 +1,7 @@
 # INSPECTION.md — 독립 검수 보고
 
 > **지위**: "완료됐다"는 자기보고를 **실측으로 재검증**한 독립 검수. 구현 세션의 주장과 무관하게 **직접 실행·확인한 것만** 판정에 사용.
-> **기준 문서**: SPEC.md · INVENTORY.md · LEGACY.md (RUNNER.md는 부재 — B2 참조). **기준 브랜치**: `claude/simulation-survey-planning-d9rlih`.
+> **기준 문서**: SPEC.md · INVENTORY.md · LEGACY.md · RUNNER.md. **기준 브랜치**: `claude/simulation-survey-planning-d9rlih` (검증불가 3건 폐색은 후속 브랜치 `claude/runner-md-guide-89tnrn`, 2026-07-18).
 > **검수 시점**: HEAD=`6618113` · **정찰 시점(diff 기준)**: `e131c4a`(INVENTORY.md 최초 커밋) · 교차확인 baseline `badd0b8`(정찰 이전).
 > **제약 준수**: 코드 무수정(유일 산출물=이 파일) · LLM 실행 0회(기존 dry_run 실물로 검증) · 모든 생성물은 `/tmp`·무시경로에만 → 검수 종료 후 추적 트리 무변경 확인.
 > **표기**: 직접 재현 불가 항목은 FAIL이 아니라 **[검증불가]**. 모든 판정에 재현 커맨드/파일경로 병기.
@@ -12,7 +12,7 @@
 
 - **블로커(완료기준 미달) FAIL: 0건.** 경미 FAIL: 0건.
 - **PASS 18개 항목** — A1~A4, B1, C1~C4, D1~D5, 울타리6(D6), P2완료기준(a). 전부 실측 재현.
-- **[검증불가] 3건**(제약상 직접 재현 불가 — 소유자 수동 확인 대상): **B2**(RUNNER.md 부재), **C2 시각 렌더**(브라우저 육안), **P2 완료기준 (b)**(콘솔 UI 신규 dry_run 트리거→화면 — 실제 LLM 실행 필요).
+- **[검증불가]였던 3건 → 전부 닫힘**(소유자 입회 후속 검수, 2026-07-18): **B2**(RUNNER.md 작성됨), **C2 시각 렌더**(소유자 육안 확인, 5화면 정상), **P2 완료기준 (b)**(진단 렌더 결함 발견·수정 fix d58d630, 커밋 런 기반 검증 LLM 0회). 상세는 문서 하단 「검증불가 3건 폐색 기록」.
 - **적대적 교차검증**: 읽기전용 서브에이전트 10종이 핵심 판정 9개를 독립 반증 시도 → **10/10 CONFIRMED**(전부 재현 성공·반증 실패).
 - **자기보고 대비 정정 1건**(위반 아님): "v23_analyze/v23_multi_analyze/vs_verify 완전 무변경" 주장은 부정확 — 실제로 P0-1 경로치환 2줄 변경 있음(단 salt·임계·통계·프롬프트·스키마는 불변).
 
@@ -32,18 +32,18 @@
 | ID | 판정 | 근거(재현 커맨드/경로) | 비고 |
 |---|---|---|---|
 | **B1** 러너 완주 | **PASS** | 기존 dry_run 런 `runs/wf_f27fa6bd-a74/` 실물 검증(새 실행 안 함): ① 저널 `journal.jsonl` result 2건·`A2a_dist` 존재 ② 풀 스냅샷 prof/pool_meta/run_cfg 존재 ③ `params.json` = dry_run:True·N:2·session_id 기록 ④ 판정연결 `v23_analyze wf_f27fa6bd-a74` exit 0. 러너 계약코드 `runner.py`(discover_run_id:97·poll_journal:116·persist_run 호출:196) 존재. | 규칙2 준수(기존 dry_run 산출물 사용, LLM 미실행). 이 산출물은 러너 **CLI 체인**(실행→런ID→저널→runs/→판정)을 입증. |
-| **B2** RUNNER.md | **[검증불가]** | `ls RUNNER.md` → **부재**. | SPEC이 RUNNER.md를 요구하지 않음(§4는 러너 '계약'만 규정) → 완료기준 미달 아님. 러너는 `runner.py` 도크스트링(:1-16)+SPEC§4로 자기문서화. **정보성** — 소유자가 RUNNER.md를 원하면 별도 작성 대상. |
+| **B2** RUNNER.md | **닫힘** ~~[검증불가]~~ | RUNNER.md 작성됨(커밋 `cf1e428`) — 빠른시작·워크플로·비용가드·트러블슈팅. | 원래 [검증불가](부재)였음. 후속 세션에서 사용 가이드 작성 → 닫힘. |
 
 ## C. P2 완료 기준 (코드 검증 가능 범위)
 
 | ID | 판정 | 근거(재현 커맨드/경로) | 비고 |
 |---|---|---|---|
 | **C1** 백엔드 API | **PASS** | `uvicorn harness_api.main:app`(port 8799) 기동 후 curl: `/api/runs`(런 3개 R3·R4·dry_run) · `/api/design`(13문항·21latent·12anchor) · `/api/runs/wf_9971e46b-6d1/diagnose`(v2.3·N49) · `/judge`(single·B1 −0.08) · `/api/runs/wf_6ff10eda-c1f/judge`(multipool·통합 B1 −0.31***). | 4개 화면이 쓰는 엔드포인트 전부 R3/R4 실데이터 JSON 반환. |
-| **C2** 프론트 빌드 | **PASS**(빌드) / **[검증불가]**(시각) | `cd web && npm run build` → **exit 0**(39모듈, dist 생성). | 브라우저 시각 렌더링은 소유자 수동 확인(비스킵 e2e는 렌더 검증하나, 본 검수는 빌드 통과까지 실측). |
+| **C2** 프론트 빌드/시각 | **PASS**(빌드) / **닫힘**(시각) ~~[검증불가]~~ | `cd web && npm run build` → **exit 0**. 시각: 서버 기동 후 헤드리스 실제 렌더 스크린샷 5화면(콘솔·진단·판정·리포트·설계) → **소유자 육안 확인 "전부 정상"**(2026-07-18). | 원래 [검증불가](브라우저 육안)였음 → 닫힘. |
 | **C3** 리포트 ⓪ 헤더 | **PASS** | 실제 생성 `curl /api/runs/wf_9971e46b-6d1/report` → `warning_included:True`, `## ⓪ 문서 지위 · 필수 경고`·`LLM 합성·비실측`·`인용 불가` 전부 포함. 비활성화 옵션 부재: `grep -niE 'disable|skip.?warn|toggle' harness_api/report.py` → 0건. | `WARNING_HEADER`(report.py:15) 상수, build_markdown(:185)에 무조건 삽입(끌 분기 없음), warning_included 고정 True(:233). |
 | **C4** 설계 읽기전용 | **PASS** | `/api/design`은 `@app.get`(main.py:59) 단일, design 대상 POST/PUT/PATCH/DELETE 없음. `Design.jsx`에 input/textarea/form/onSubmit/save 없음(유일 button=오류시 재시도). | 편집 UI·쓰기 엔드포인트 부재. |
 | **P2완료기준 (a)** 이관 R3/R4 4화면 표시 | **PASS** | C1으로 입증(runs/의 R3·R4가 진단·판정·리포트·설계·콘솔이 읽는 API에서 정상 반환). | — |
-| **P2완료기준 (b)** 콘솔 신규 dry_run 트리거→진단·판정 화면 | **[검증불가]** | 유일 커버리지 `web/e2e/full-chain.spec.js`는 **기본 skip**(`:6,9` test.skip(!enabled), enabled=RUN_FULL_CHAIN==='1' → **실제 claude 서브프로세스 필요**). `console.spec.js:49`는 '실행' 클릭을 의도적으로 생략(비용 회피). UI-트리거 산출물(wf_59ca0f21-584·wf_3505859a-2c1·pool_88888·pool_777) **커밋 트리에 전부 부재**. | **본 검수 제약(LLM 실행 금지)상 직접 재현 불가 → 규칙3에 따라 검증불가.** 백엔드 배선(POST /api/runs→actions.start_run→러너→get_job)은 **코드상 존재**하고 LLM-의존 러너체인은 B1으로 입증됨. 콘솔 UI→잡→화면 end-to-end만 미입증. **소유자 확인**: `RUN_FULL_CHAIN=1 npx playwright test full-chain`(실제 LLM). |
+| **P2완료기준 (b)** 콘솔 신규 dry_run 트리거→진단·판정 화면 | **닫힘** ~~[검증불가]~~ | 소유자 입회 후속 검수(2026-07-18): 콘솔 dry_run 트리거 → 신규 런 생성·persist ✅, 판정 화면 정상 렌더 ✅. **진단 화면에서 경고 객체 렌더 크래시(빈 화면) 발견 → 표시계층 1줄 수정(fix `d58d630`)**, 커밋 런 `wf_f27fa6bd-a74`(경고 2건)로 before(blank)→after(정상)→회귀(R3) 검증 **LLM 0회**. | 원래 [검증불가](LLM 실행 필요)였음. full-chain e2e는 그 진단 렌더 결함으로 실패했었고, 결함 제거로 폐색. 상세는 하단 「폐색 기록」. |
 
 ## D. 울타리 준수 감사
 
@@ -83,11 +83,14 @@
 - **[블로커]** (완료기준 미달): **없음**.
 - **[경미]** (작동 지장 없는 결함): **없음**.
 
-## 소유자 수동 확인 필요 항목 (검증불가 3건)
+## 검증불가 3건 폐색 기록 (소유자 입회 후속 검수 · 2026-07-18 · 브랜치 `claude/runner-md-guide-89tnrn`)
 
-1. **P2 완료기준 (b)** — 콘솔에서 신규 dry_run 트리거 → 진단·판정 화면까지 무개입 완주. 실제 LLM 실행이 필요해 본 검수(LLM 금지)로 재현 불가. 확인: `cd web && RUN_FULL_CHAIN=1 npx playwright test full-chain`. (백엔드 배선은 코드 존재, LLM-의존 러너체인은 B1으로 입증됨 — 미입증분은 UI→잡→화면 end-to-end 뿐.)
-2. **C2 시각 렌더** — 브라우저에서 4+1 화면의 실제 렌더링 육안 확인(빌드 통과는 실측됨).
-3. **B2 RUNNER.md** — 문서 부재. SPEC 미요구라 완료기준엔 무관하나, 소유자가 러너 사용법 문서를 원하면 작성 대상.
+원래 [검증불가]였던 3건이 **전부 닫혔다**. (원 검수는 읽기전용·LLM 금지 제약상 재현 불가였고, 후속 검수는 소유자 입회 하에 서버를 실제 기동해 확인.)
+
+1. **P2 완료기준 (b) — 닫힘.** 서버 기동(백엔드 :8781 + 프론트 :5173) 후 헤드리스 브라우저로 **콘솔 dry_run을 실제 트리거** → 신규 런 생성·persist 확인. 판정 화면 정상 렌더. 진단 화면에서 **경고 객체 렌더 크래시(빈 화면)를 발견** — `v23_verify.py`가 경고를 객체 `{code,field,message,prescription}`로 내는데 `Diagnose.jsx`가 문자열처럼 렌더 → React "Objects are not valid as a React child" 예외. 경고 없는 R3/R4는 조건분기(`warnings.length>0`)를 안 타 무영향(원 육안검수 R3 정상은 옳았음). **표시계층 1줄 수정(fix `d58d630`, Diagnose.jsx:94)** 후, 커밋된 dry_run `wf_f27fa6bd-a74`(경고 2건: homogeneity + within_item_collapse)로 **before(blank)→after(경고 message·처방 정상 표시)→회귀(R3 "경고 없음")** 검증. **새 LLM 실행 0회.** full-chain e2e 재실행은 남은 미입증분이 그 진단 렌더였고 결함 제거로 닫혔으므로 생략.
+   - 부수 발견: 이 크래시는 e2e 엣지가 아니라 **repo에 커밋·배포된 dry_run 런(`wf_f27fa6bd-a74`)이 진단 탭에서 화면을 죽이던 실제 결함**이었음(수정으로 해소).
+2. **C2 시각 렌더 — 닫힘.** 5화면(콘솔·진단·판정·리포트·설계) 실제 렌더 스크린샷을 **소유자가 육안 확인 "전부 정상"**.
+3. **B2 RUNNER.md — 닫힘.** RUNNER.md 사용 가이드 작성됨(커밋 `cf1e428`) — 빠른시작·표준워크플로·러너·비용가드·산출물·트러블슈팅.
 
 ---
 
