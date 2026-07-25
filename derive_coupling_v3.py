@@ -62,11 +62,18 @@ def proxies(V):
 
     # 해결지향 — (ㄱ) 판정대상 유래(SPEC §2가 지목한 근거: C2 +11%p·D1 +14%p)
     c2 = V["C2"].map(C2_W)                                      # SKIP은 NaN → 조건부 표본
-    P[("해결지향/C2전환(SKIP제외)", "판정대상")] = c2
+    P[("해결지향/C2순서점수(SKIP제외)", "판정대상")] = c2
+    # ★소유자 결정 ④(4c): 판정 지표를 **이진 구매율**(꼭+가끔)로 사전 지정 →
+    #   도출도 동일 지표로 일관 적용(도출·판정 지표 정합). 순서점수는 병기 기록.
+    c2b = V["C2"].where(V["C2"] != "SKIP").isin(["꼭산다", "가끔산다"]).astype(float)
+    c2b[V["C2"] == "SKIP"] = np.nan
+    P[("해결지향/C2이진구매율(SKIP제외)★", "판정대상")] = c2b
     d1 = V[D1_COLS].apply(lambda r: (r == "산다").sum(), axis=1) / 4.0
     P[("해결지향/D1총수용", "판정대상")] = d1
     both = pd.concat([c2, d1], axis=1).mean(axis=1, skipna=False)
-    P[("해결지향/C2·D1평균", "판정대상")] = both
+    P[("해결지향/C2순서·D1복합", "판정대상")] = both
+    bothb = pd.concat([c2b, d1], axis=1).mean(axis=1, skipna=False)
+    P[("해결지향/C2이진·D1복합★", "판정대상")] = bothb
 
     # 해결지향 — (ㄴ) 비판정 대안(서로소 보존용 후보)
     P[("해결지향대안/A2c접근성장벽", "비판정")] = V["A2c"].map(dict(zip(A2_LV, A2_W)))
@@ -215,6 +222,58 @@ def factor_structure(V):
     return out, ref, c2dual
 
 
+BOOT_SEED = 20260725      # 부트스트랩 시드(기록 · 파일럿 보고서의 20260726과 구분)
+
+
+def boot_ci(V, y, B=10000):
+    """β_shift의 부트스트랩 95% CI — 점추정의 유효자릿수 판단용."""
+    m = y.notna()
+    a2, yy, seg = V.loc[m, "a2int"].to_numpy(float), y[m].to_numpy(float), V.loc[m, "seg"].to_numpy(bool)
+    n = len(yy)
+    rng = np.random.default_rng(BOOT_SEED)
+    out = []
+    for _ in range(B):
+        i = rng.integers(0, n, n)
+        s, ns = seg[i], ~seg[i]
+        if s.sum() < 2 or ns.sum() < 2:
+            continue
+        dx = a2[i][s].mean() - a2[i][ns].mean()
+        if abs(dx) < 1e-9:
+            continue
+        out.append((yy[i][s].mean() - yy[i][ns].mean()) / dx)
+    if len(out) < 100:
+        return None
+    return [round(float(np.percentile(out, 2.5)), 3), round(float(np.percentile(out, 97.5)), 3)]
+
+
+def y_side_attenuation(run_id="wf_6ff10eda-c1f"):
+    """결과측(y) 감쇠 앵커: 기존 v2.3에서 '강하게 매핑된' latent→믿음질량 결과의 상관.
+       가격민감 → d1a(=mean(buy)/10)는 시뮬 문서 §⑦에서 통합 r=−0.78로 보고된 축."""
+    base = os.environ.get("HARNESS_RUNS", os.path.join(os.getcwd(), "runs"))
+    d = os.path.join(base, run_id)
+    try:
+        lat = {a["pid"]: a for a in json.load(open(os.path.join(d, "multipool_args.json"), encoding="utf-8"))}
+        meta = {m["pid"]: m for m in json.load(open(os.path.join(d, "multipool_meta.json"), encoding="utf-8"))}
+        rows = {}
+        for line in open(os.path.join(d, "journal.jsonl"), encoding="utf-8"):
+            o = json.loads(line)
+            r = o.get("result")
+            if o.get("type") == "result" and isinstance(r, dict) and "A2a_dist" in r:
+                rows[r["pid"]] = r
+    except Exception as e:
+        return {"available": False, "note": str(e)}
+    P = [p for p in rows if p in lat and meta.get(p, {}).get("is_target")]
+    if len(P) < 10:
+        return {"available": False, "note": "표본 부족"}
+    d1a = [statistics.mean(rows[p][f"buy_{v}"] for v in (5900, 6900, 7500, 8500)) / 10 for p in P]
+    b1m = [float(np.dot(np.array(rows[p]["B1_dist"], float) / (sum(rows[p]["B1_dist"]) or 1),
+                        [1, 2, 3, 4, 5])) for p in P]
+    return {"available": True, "n": len(P),
+            "corr(latent 가격민감, 믿음질량 d1a)": round(float(np.corrcoef([lat[p]["가격민감"] for p in P], d1a)[0, 1]), 3),
+            "corr(latent 향기피, 믿음질량 b1m)": round(float(np.corrcoef([lat[p]["향기피"] for p in P], b1m)[0, 1]), 3),
+            "note": "결과측은 믿음질량이라 강한 의미연결이면 감쇠 작음(가격민감축이 그 전례)"}
+
+
 def main():
     ap = argparse.ArgumentParser(description="SPEC_V3 부록A 결합 강도 도출")
     ap.add_argument("--json", default=None, help="결과 JSON 저장 경로")
@@ -250,9 +309,17 @@ def main():
         yy = y.dropna()
         print(f"  {name:38s} μ={yy.mean():.3f}  σ={yy.std(ddof=1):.3f}  n={len(yy)}")
 
-    print("\n[감쇠 계수 — latent 향기피 ↔ 실현 A2a (v2.3 R4 런 재분석)]")
+    print(f"\n[β_shift 부트스트랩 95% CI (B=10000, seed={BOOT_SEED})]")
+    for key in ["경험평가/A1[무경험0.75]", "해결지향/C2이진구매율(SKIP제외)★",
+                "해결지향/D1총수용", "해결지향/C2이진·D1복합★"]:
+        y = next(v for (n, _s), v in P.items() if n == key)
+        print(f"  {key:34s} {boot_ci(V, y)}")
+
+    print("\n[감쇠 사슬 — x측: latent 향기피 ↔ 실현 A2a (세그 정의 경로)]")
     att = attenuation()
     print("  " + json.dumps(att, ensure_ascii=False))
+    print("[감쇠 사슬 — y측 앵커: latent ↔ 믿음질량 결과 (결과 경로)]")
+    print("  " + json.dumps(y_side_attenuation(), ensure_ascii=False))
 
     fs, ref, c2dual = factor_structure(V)
     print("\n[요인 간 구조 — 요인 상관 주입 필요성 판단]")
