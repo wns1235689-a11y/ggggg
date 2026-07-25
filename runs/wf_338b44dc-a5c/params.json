@@ -1,0 +1,23 @@
+{
+ "run_id": "wf_338b44dc-a5c",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.001,
+ "gzipped": false,
+ "pool_source": "/home/user/ggggg/runs/v3pool_45069727",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "engine": "v3-sim",
+  "script": "wf_vs_v3.js",
+  "pool_id": "v3pool_45069727",
+  "effort": "medium",
+  "dry_run": true,
+  "N": 2,
+  "purpose": "SPEC_V3 §6-1 dry — 파이프라인·스키마 확인",
+  "beta_exp": 0.56,
+  "beta_sol": 0.17
+ }
+}
