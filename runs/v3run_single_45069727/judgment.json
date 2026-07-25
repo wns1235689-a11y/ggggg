@@ -1,0 +1,80 @@
+{
+ "run_id": "v3run_single_45069727",
+ "mode": "single",
+ "seed": 45069727,
+ "N": 50,
+ "n_target": 37,
+ "label": "보정 시뮬 · 가설 생성 전용 · 시장 증거 아님 · 인용 불가  (SPEC_V3 §0 — 하드코딩, 비활성화 불가)",
+ "coupling": {
+  "BETA_EXP": 0.56,
+  "BETA_SOL": 0.17,
+  "BASE_EXP": [
+   0.36,
+   0.35
+  ],
+  "BASE_SOL": [
+   0.5,
+   0.22
+  ],
+  "SALT_EXP": 70,
+  "SALT_SOL": 71,
+  "source": "SPEC_V3_부록A.md A11 (파일럿 N=88 도출)"
+ },
+ "per_pool": {},
+ "integrated": {
+  "n": 37,
+  "n_seg": 6,
+  "n_non": 31,
+  "judgments": {
+   "B1": {
+    "delta": -0.242,
+    "expect": "음",
+    "tier": "좁은 창발"
+   },
+   "C2": {
+    "delta": -0.003,
+    "expect": "양",
+    "tier": "전파 확인(부분 순환)",
+    "n_seg_cond": 5,
+    "n_non_cond": 30,
+    "metric": "이진 구매율(꼭+가끔 질량) — §4-2 정정"
+   },
+   "D1": {
+    "delta": -0.074,
+    "expect": "양",
+    "tier": "전파 확인(부분 순환)"
+   },
+   "B3": {
+    "delta": 0.043,
+    "expect": "음(세그<비기피)",
+    "tier": "순수 창발",
+    "seg_pct": 23.3,
+    "non_pct": 19.0
+   }
+  },
+  "aux": {
+   "C2_순서점수_delta(병기)": -0.018,
+   "dose_B1": {
+    "아니다": 3.29,
+    "조금": 3.16,
+    "매우": 3.0
+   },
+   "dose_매우최저": true,
+   "E1_나-가_delta": 0.297,
+   "E1_세그_나질량%": 40.0,
+   "E1_비기피_나질량%": 24.8
+  }
+ },
+ "pass_map": {
+  "B1": true,
+  "C2": false,
+  "D1": false,
+  "B3": false
+ },
+ "n_pass": 1,
+ "gate_directions_observed": 1,
+ "gate_pass": false,
+ "null_rate": {
+  "게이트(방향≥2/4)": 0.6875
+ }
+}

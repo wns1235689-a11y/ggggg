@@ -1,0 +1,19 @@
+{
+ "merged_from": [
+  "wf_4ff14243-17a",
+  "wf_9dedeae4-ed0"
+ ],
+ "pool": "v3pool_45069727",
+ "n_results": 50,
+ "engine": "v3-sim",
+ "script": "wf_vs_v3.js",
+ "launch": "Workflow(scriptPath=wf_vs_v3.js, args=personas) — 청크 분할",
+ "failed_run_disclosed": "wf_7aa3b5eb-961",
+ "note": "기술적 결함(베이킹 사본에서 스키마 미전달)로 1차 런 전량 실패 → 동일 풀·동일 프롬프트로 청크 재실행. 판정 기준·풀·시드 무변경.",
+ "verify": {
+  "pid_set": "ok",
+  "dist_sum": "ok",
+  "prompt_match": "ok",
+  "warnings": []
+ }
+}
