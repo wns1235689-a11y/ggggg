@@ -44,6 +44,13 @@ C1_IDX_NOSEEK = 4      # '이런 맛 안 찾음'
 TIER = {"B1": "좁은 창발", "C2": "전파 확인(부분 순환)",
         "D1": "전파 확인(부분 순환)", "B3": "순수 창발"}     # §4 창발 3계층(3df8d88)
 
+# 널 도달 확률 — 참효과 0에서 규칙이 통과할 확률(부록 A A14 · null_rate_v3.py 수치적분).
+# 표시 전용 상수: 판정 로직·임계에 관여하지 않는다. SPEC_V3 §5·§8 의무 공시라 끌 수 없다.
+NULL_RATE = {"판정당": 0.4189, "완전 적합": 0.0308, "부분 적합(구조 지지)": 0.1281,
+             "부분 적합(주변부만) — 2요인의 핵심 창발 미달": 0.0427, "부적합": 0.7984,
+             "구조지지이상": 0.1589, "게이트": 0.6875}
+V23_BASELINE = "v2.3 기준선(동일 판정기·기존 R4) = 1/4 부적합 · #4 B3 −0.000 (부록 A A12)"
+
 
 def wmean(d, v):
     w = np.array([max(float(x), 0.0) for x in d])
@@ -245,15 +252,25 @@ def main():
                  "부적합")
         res["grade"] = grade
         res["variant_run_allowed"] = grade in ("완전 적합", "부분 적합(구조 지지)")
+        res["null_rate"] = {"판정당": NULL_RATE["판정당"],
+                            "이 등급": NULL_RATE.get(grade),
+                            "구조지지이상": NULL_RATE["구조지지이상"]}
+        res["v23_baseline"] = V23_BASELINE
         print(f"\n▶ 적합 등급(§5): **{grade}**  ({n_pass}/4, B3 {'포함' if b3_ok else '탈락'})")
+        print(f"  └ 널 도달 확률(§8 의무 공시): 이 등급 {NULL_RATE.get(grade, float('nan'))*100:.1f}% · "
+              f"판정당 {NULL_RATE['판정당']*100:.1f}% · 구조지지 이상 {NULL_RATE['구조지지이상']*100:.1f}%")
+        print(f"  └ {V23_BASELINE} — 등급은 단독이 아니라 이 기준선과의 차이로 해석(§8)")
         print(f"▶ 카피 변형 런 진행 조건(부분 적합(구조 지지) 이상): "
               f"{'충족' if res['variant_run_allowed'] else '미충족 → 변형 런 미집행'}")
     else:
         obs = sum(1 for k in pass_map if pass_map[k])
         res["gate_directions_observed"] = obs
         res["gate_pass"] = obs >= 2
+        res["null_rate"] = {"게이트(방향≥2/4)": NULL_RATE["게이트"]}
         print(f"\n▶ §6 비용 게이트(단일풀 — 등급 판정 아님): 방향 관측 {obs}/4 → "
               f"{'멀티풀 진행' if obs >= 2 else '조기중단 — 부적합(단일풀 조기중단) 보고'}")
+        print(f"  └ 널 도달 확률(§8 의무 공시): 게이트 통과 {NULL_RATE['게이트']*100:.1f}% "
+              f"(단일풀은 풀 부호 조건이 없어 판정당 50%) — 게이트는 증거가 아니라 비용 통제다")
 
     print("\n[보조 관찰 — 등급 무관·기록]")
     for k, v in integ["aux"].items():
