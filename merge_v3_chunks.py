@@ -67,12 +67,20 @@ def agent_prompts(run_id):
 def main():
     ap = argparse.ArgumentParser(description="v3 청크 저널 병합·검증")
     ap.add_argument("--out", required=True, help="병합 런 디렉토리명(runs/<out>/)")
-    ap.add_argument("--pool", required=True, help="풀 디렉토리(runs/v3pool_...)")
+    ap.add_argument("--pool", required=True, help="풀 디렉토리(runs/v3pool_... 또는 v3multi_...)")
     ap.add_argument("--chunks", nargs="+", required=True, help="청크 run_id 목록")
     ap.add_argument("--failed-run", default=None, help="공개할 실패 런 id(params 기록용)")
+    ap.add_argument("--multipool", action="store_true",
+                    help="멀티풀 런(multipool_args/meta/cfg 사용 · 풀 파일 3종 복사)")
     a = ap.parse_args()
 
-    prof = {p["pid"]: p for p in json.load(open(f"{a.pool}/prof.json", encoding="utf-8"))}
+    if a.multipool:
+        prof = {p["pid"]: p for p in json.load(open(f"{a.pool}/multipool_args.json",
+                                                    encoding="utf-8"))}
+        pool_files = ("multipool_args.json", "multipool_meta.json", "multipool_cfg.json")
+    else:
+        prof = {p["pid"]: p for p in json.load(open(f"{a.pool}/prof.json", encoding="utf-8"))}
+        pool_files = ("prof.json", "pool_meta.json", "run_cfg.json")
     lines, results, prompts, warn = [], {}, {}, []
     for rid in a.chunks:
         rows, path = read_journal(rid)
@@ -107,13 +115,16 @@ def main():
             warn.append(f"pid {pid} 가격 비단조 buy={b}")
     print(f"[2] 분포 정합 위반: {len(bad)}건" + ("" if not bad else " → " + "; ".join(bad[:5])))
 
-    # 3. 프롬프트 대조
+    # 3. 프롬프트 대조 — 세그먼트 문자열(S1~S5) + 특성 lvl 전량
     mism = []
     for pid, p in prof.items():
         t = prompts.get(pid)
         if t is None:
             mism.append(f"pid {pid} 프롬프트 없음")
             continue
+        for f in ("S1", "S2", "S3", "S4", "S5"):
+            if str(p[f]) not in t:
+                mism.append(f"pid {pid} {f}: 기대 '{p[f]}' 프롬프트에 없음")
         for f in LVL_FIELDS:
             want = lvl(p[f])
             # 프롬프트는 "<라벨> <lvl>" 형태 — 필드명 직후 값 확인
@@ -142,7 +153,7 @@ def main():
     d = H.run_dir(a.out, create=True)
     with open(f"{d}/journal.jsonl", "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    for fn in ("prof.json", "pool_meta.json", "run_cfg.json"):
+    for fn in pool_files:
         shutil.copy2(f"{a.pool}/{fn}", f"{d}/{fn}")
     json.dump({"merged_from": a.chunks, "pool": os.path.basename(a.pool),
                "n_results": len(results), "engine": "v3-sim", "script": "wf_vs_v3.js",
