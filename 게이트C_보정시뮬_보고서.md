@@ -252,8 +252,9 @@
 ## 부록 — 재현 커맨드
 
 ```bash
-# 1) 풀 생성 (사전등록 · 결과 관측 전 커밋 5fde5ab)
-python3 build_pool_v3.py --seed 20260726 --n 100 --pools 3      # → runs/v3multi_95638618/
+# 1) 풀 생성 (사전등록 · 결과 관측 전 커밋 5fde5ab)  ※ 시드 각주 참조
+python3 build_pool_v3.py --seed 20260726 --n 100 --pools 3      # → runs/v3multi_95638618/  (등급런)
+python3 build_pool_v3.py --seed 20260725 --n 50                 # → runs/v3pool_45069727/   (게이트런)
 
 # 2) 설문 집행 (원본 스크립트 + args 청크 6회 · 풀 경계 정렬)
 #    Workflow(scriptPath=wf_vs_v3.js, args=<multipool_args.json 50명 슬라이스>)
@@ -275,6 +276,19 @@ HARNESS_SP=$PWD/runs/v3run_multi_95638618 HARNESS_JOURNAL_BASE=$PWD/runs \
 # 6) 널 도달 확률 재산출
 python3 null_rate_v3.py
 ```
+
+### 시드 각주 — 커맨드가 이 런을 실제로 재현하는지 확인함
+
+`--seed`는 **마스터 시드**이며, 풀 시드·SAMPLE_SEED·디렉토리명은 여기서 파생된다. 두 이름 체계가 달라 혼동하기 쉬우므로 명시한다.
+
+| 런 | 커맨드 `--seed`(마스터) | 파생 풀 시드 | SAMPLE_SEED | 디렉토리명 출처 |
+|---|---|---|---|---|
+| 등급런(멀티풀 3×100) | **20260726** | 23587838 / 67906361 / 58499640 | 95638618 | **SAMPLE_SEED** → `v3multi_95638618` |
+| 게이트런(단일풀 50) | **20260725** | 45069727 | 93579064 | **풀 시드** → `v3pool_45069727` |
+
+- 마스터 시드 선정 규칙(사전 선언·결과 무관): 게이트런 20260725, 등급런은 **+1 = 20260726**.
+- **재현 확인(2026-07-27 실시)**: 위 두 커맨드를 `HARNESS_RUNS`를 스크래치로 돌려 재생성한 뒤 커밋본과 `cmp` 대조 — **6개 파일 전부 바이트 동일**(`multipool_args.json` · `multipool_meta.json` · `multipool_cfg.json` / `prof.json` · `pool_meta.json` · `run_cfg.json`). 즉 이 보고서의 판정 대상 풀은 커맨드만으로 완전 재현된다.
+- LLM 응답 자체는 재현 대상이 아니다(샘플링 확률적). 재현되는 것은 **풀·프롬프트·판정 파이프라인**이며, 응답 원본은 병합 저널 `runs/v3run_multi_95638618/journal.jsonl`에 보존돼 있어 판정(4·5단계)은 결정적으로 재계산된다.
 
 **관련 문서**: `SPEC_V3.md`(사양·판정 기준·해석 규칙) · `SPEC_V3_부록A.md`(도출 근거·정정 이력·A11 결합·A13-2 미주입·A14 널 확률·A15 해석 노트) · `V3_RUNLOG.md`(런 이력 원장·기술적 실패 상세·토큰 장부) · `runs/v3run_multi_95638618/judgment.json`(판정 원본) · `runs/v3run_single_45069727/judgment.json`(게이트 원본).
 
