@@ -206,8 +206,13 @@ def main():
     jbase = reanchor_jbase(jbase, run_id, log)
     status, jpath, got = poll_journal(jbase, run_id, N, timeout, log)
 
+    # 부분 완주 영속화(B안 운영): 에이전트 일부 실패로 timeout돼도 90%+ 회수면 증거 보존
+    if status == "timeout" and got >= max(1, int(0.9 * N)):
+        status = "completed_partial"
+        log.append(f"[partial] {got}/{N} 회수(≥90%) — 부분 완주로 영속화")
+
     journal_path = None
-    if status == "completed":
+    if status in ("completed", "completed_partial"):
         env = dict(os.environ, HARNESS_JOURNAL_BASE=jbase)
         params = json.dumps({"script": a.script, "pool_id": a.pool_id, "effort": a.effort,
                              "dry_run": a.dry_run, "N": N, "session_id": sid,

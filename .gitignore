@@ -7,3 +7,6 @@ out/
 runs/_jobs/
 runs/_sp/
 runs/_tmp_runs/
+
+# 2단위 드라이버 런타임 로그(비커밋)
+runs/_unit2_log*
