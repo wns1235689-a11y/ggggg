@@ -1,0 +1,21 @@
+{
+ "run_id": "wf_7c2cf5f3-069",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.002,
+ "gzipped": false,
+ "pool_source": "/home/user/ggggg/runs/pool_genesis_8888001",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "surveys/genesis_eu26/wf_genesis.js",
+  "pool_id": "pool_genesis_8888001",
+  "effort": "medium",
+  "dry_run": true,
+  "N": 2,
+  "session_id": "d7d4fb13-2a7e-4364-b002-899a2d7ef914",
+  "survey_id": "genesis_eu26"
+ }
+}

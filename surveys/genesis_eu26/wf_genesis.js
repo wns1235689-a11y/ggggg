@@ -21,7 +21,7 @@ function prompt(p) {
   const magma = p['마그마인지(사실)']
   const magmaLine = isGP
     ? `[마그마 상태(사실)] ${magma.안다 ? `Genesis의 레이싱(르망/WEC) 활동을 ${magma.깊이 === 'specific' ? '구체적으로 안다(팀명·드라이버·차량까지 떠올릴 수 있음)' : '막연히 들어봤다("르망 나왔다던데" 수준)'}` : 'Genesis의 레이싱 활동을 들어본 적 없다'}.`
-    : `[마그마 질문 없음] 이 모집단(거리)에서는 레이싱 질문을 하지 않는다 → magma_dist=[0,0], magma_verbatim=[].`
+    : `[마그마 질문 없음] 이 모집단(거리)에서는 레이싱 질문 자체를 하지 않는다 → magma_dist는 **정확히 [0, 0]** (No 칸도 0 — 질문을 안 했으므로 응답 인원이 없다), magma_verbatim=[].`
   return `너는 유럽 길거리 설문의 응답 시뮬레이터다. 아래 '유형'과 비슷한 실제 행인/관중 10명이 이 설문에 어떻게 답할지 추정하라.
 ★브랜드 인지 상태는 이 유형의 **사실**이다. '모른다' 브랜드를 아는 것처럼 만들지 마라. 단 보조 카드에서는 실제 행인처럼 소수의 오인정("본 것 같은데?" — 이 유형의 예스세잉 바닥 ≈ ${Math.round(p.예스세잉바닥 * 100)}%)이 있을 수 있다.
 ★비보조(Q1)에서 어떤 브랜드를 몇 개, 어떤 순서로 떠올리는지는 **네가 이 유형답게** 구성하라(거주국·연령·자동차/EV 관심 반영). 이 지시문은 브랜드 후보를 제시하지 않는다. 10명이 똑같은 목록을 대게 하지 마라.
@@ -36,7 +36,8 @@ Q1 "Which premium or luxury car brands come to mind? Just name a few." ("Any oth
 → q1_lists: 10명 각각이 실제로 말할 목록(말한 순서대로, 쉼표 구분 영어 한 줄). 사람마다 2~5개가 보통, 0~1개인 무관심층도 있다.
 
 Q2 로고 카드(BMW·Lexus·Polestar·Genesis, 워드마크 포함, 순서 로테이션) — "Do you recognize any of these brands?"
-→ B_dist, L_dist, P_dist, G_dist: 각 [Yes / No] 10명 분포(합=10). 인지 상태와 정합하되 예스세잉 바닥 반영.
+→ B_dist, L_dist, P_dist, G_dist: 각 [Yes / No] 10명 분포(합=10). 상태별 Yes 인원 규율(주입 상태의 충실 전달):
+   '안다' → 8~10명(최소 7) / '어렴풋' → 2~7명 / '모른다' → 0~2명(예스세잉 바닥만).
 
 ${isGP ? `Q3 (Genesis를 Yes라 한 사람만) "Have you heard anything about Genesis in racing — Le Mans, or the WEC?"
 → magma_dist [Yes / No], 합 = G_dist의 Yes 인원수. magma_verbatim: Yes 인원수만큼 짧은 회상 원문(영어 — 마그마 상태의 깊이와 정합: 구체면 팀·드라이버·차명 수준, 막연이면 "saw them at Le Mans?" 수준).` : `(이 모집단은 Q3 없음 — magma_dist=[0,0], magma_verbatim=[])`}`

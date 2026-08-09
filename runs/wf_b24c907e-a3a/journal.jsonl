@@ -1,0 +1,4 @@
+{"type":"started","key":"v2:3b956bd73807b262b5c73bf39d96cc33d5f920f068c4784d8769862fb4b6f4f7","agentId":"adb94b0510c40816b"}
+{"type":"started","key":"v2:a931a37441333c4f10bd7fab593e4fcb2e72a03f679de7df7063e1f9de3cd9b5","agentId":"ae091c2718ab130e7"}
+{"type":"result","key":"v2:3b956bd73807b262b5c73bf39d96cc33d5f920f068c4784d8769862fb4b6f4f7","agentId":"adb94b0510c40816b","result":{"Q1_dist":[1,9],"q2_verbatim":["hmm, maybe some Japanese company? not sure honestly"],"probeA_verbatim":[],"probeB_verbatim":[],"Q3_dist":[2,3,5],"pid":0}}
+{"type":"result","key":"v2:a931a37441333c4f10bd7fab593e4fcb2e72a03f679de7df7063e1f9de3cd9b5","agentId":"ae091c2718ab130e7","result":{"Q1_dist":[4,6],"q2_verbatim":["Honestly no idea, my mate just mentioned it in passing.","Tesla maybe? I'm not really sure.","No clue, some robotics company I think.","Was it Samsung or LG or something? Can't remember."],"probeA_verbatim":[],"probeB_verbatim":[],"Q3_dist":[3,3,4],"pid":1}}

@@ -63,7 +63,7 @@ def make_temp_wf(script, personas):
     src2 = src.replace(ARGS_PATTERN, baked, 1)
     tmpdir = os.path.join("/tmp", "harness_runner")
     os.makedirs(tmpdir, exist_ok=True)
-    path = os.path.join(tmpdir, f"wfrun_{uuid.uuid4().hex[:8]}_{script}")
+    path = os.path.join(tmpdir, f"wfrun_{uuid.uuid4().hex[:8]}_{os.path.basename(script)}")
     open(path, "w", encoding="utf-8").write(src2)
     return path
 
@@ -112,6 +112,22 @@ def discover_run_id(jbase, out, timeout, log):
         log.append(f"[discover] 저널 디렉토리 미발견 → stdout 파싱 폴백: {m.group(0)}")
         return m.group(0)
     return None
+
+
+def reanchor_jbase(jbase, run_id, log):
+    """nested 세션이 지정 sid와 다른 ID로 생성되는 경우(간헐) — projdir 전체에서
+    run_id 디렉토리를 재탐색해 실제 저널 베이스로 재고정한다."""
+    if os.path.isdir(os.path.join(jbase, run_id)):
+        return jbase
+    import glob
+    projdir = os.path.dirname(os.path.dirname(os.path.dirname(jbase.rstrip("/"))))
+    hits = glob.glob(os.path.join(projdir, "*", "subagents", "workflows", run_id))
+    if hits:
+        hits.sort(key=os.path.getmtime)
+        newbase = os.path.dirname(hits[-1])
+        log.append(f"[reanchor] 지정 sid 경로에 런 없음 → 실제 저널 베이스 재고정: {newbase}")
+        return newbase
+    return jbase
 
 
 def poll_journal(jbase, run_id, expected_n, timeout, log):
@@ -187,6 +203,7 @@ def main():
         return
 
     timeout = a.timeout if a.timeout else (300 if a.dry_run else 3600)
+    jbase = reanchor_jbase(jbase, run_id, log)
     status, jpath, got = poll_journal(jbase, run_id, N, timeout, log)
 
     journal_path = None

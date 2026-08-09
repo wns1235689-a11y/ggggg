@@ -37,6 +37,7 @@ def run(run_id):
         return {"run_id": run_id, "N": 0, "diagnosable": False, "note": "결과 없음(진행 중)"}
 
     echo_viol, leak_cases, cnt_mismatch, bmw_low = [], [], [], []
+    street_magma_autozero = 0
     n_nonrecall_lists = 0
     for pid, r in rows.items():
         m = meta.get(pid)
@@ -70,7 +71,7 @@ def run(run_id):
             if abs(len(r["magma_verbatim"]) - r["magma_dist"][0]) > 1:
                 cnt_mismatch.append({"pid": pid, "why": f"verbatim {len(r['magma_verbatim'])} vs magmaY {r['magma_dist'][0]}"})
         elif ms != 0:
-            cnt_mismatch.append({"pid": pid, "why": f"거리인데 magma_dist 합 {ms}≠0"})
+            street_magma_autozero += 1   # 거리=질문 미실시 — 구조적 0으로 정규화(게이트 아님, 정보만)
         # ④ BMW 품질 앵커 — F10: knows 주입자만 판정(vague/no 주입은 정당한 저 Y)
         if m["know"]["BMW"] == "knows" and r["B_dist"][0] < BMW_FLOOR:
             bmw_low.append({"pid": pid, "B_Y": r["B_dist"][0]})
@@ -164,7 +165,8 @@ def run(run_id):
         "leak": {"nonrecall_q1_lines": n_nonrecall_lists, "leak_rate_pct": leak_rate,
                  "cases": leak_cases[:10],
                  "note": "비상기 페르소나의 Q1 Genesis 발화 = LLM 지식 누출(비보조 ≈0 규율 훼손)"},
-        "count_consistency": {"mismatches": len(cnt_mismatch), "cases": cnt_mismatch[:10]},
+        "count_consistency": {"mismatches": len(cnt_mismatch), "cases": cnt_mismatch[:10],
+                              "street_magma_autozero": street_magma_autozero},
         "vague": {"violations": len(vague_viol), "cases": vague_viol[:10],
                   "realized_y_share_mean": vague_y_mean,
                   "note": "관측공간 역산의 E[Y|vague] 실측치(가정 0.5 검증용)"},

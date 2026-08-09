@@ -1,0 +1,21 @@
+{
+ "run_id": "wf_b24c907e-a3a",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.001,
+ "gzipped": false,
+ "pool_source": "/home/user/ggggg/runs/pool_robot_7777001",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "surveys/robot_wc26/wf_robot.js",
+  "pool_id": "pool_robot_7777001",
+  "effort": "medium",
+  "dry_run": true,
+  "N": 2,
+  "session_id": "5c675f40-2351-418f-9796-4d03eab1db91",
+  "survey_id": "robot_wc26"
+ }
+}

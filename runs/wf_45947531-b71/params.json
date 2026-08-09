@@ -1,0 +1,21 @@
+{
+ "run_id": "wf_45947531-b71",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.002,
+ "gzipped": false,
+ "pool_source": "runs/pool_genesis_8888001",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "surveys/genesis_eu26/wf_genesis.js",
+  "pool_id": "pool_genesis_8888001",
+  "effort": "medium",
+  "dry_run": true,
+  "N": 2,
+  "survey_id": "genesis_eu26",
+  "note": "3차 스모크 — 러너 jbase 재고정 전 수동 회수"
+ }
+}
