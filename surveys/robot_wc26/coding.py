@@ -30,19 +30,22 @@ def _first_company(text):
 
 
 def code_q2(text):
-    """→ 'A1'|'A2'|'A3'|'G'|'W-<NAME>'|'DESC'|'DK'|'UNCODED'"""
+    """→ 'A1'|'A2'|'A3'|'G'|'W-<NAME>'|'DESC'|'DK'|'UNCODED'
+
+    동결 §6 규칙 준수(판정단 P1-03/F3 반영): 복수 기업 나열은 **최초 발화 우선**.
+    A3는 분기C 취지대로 '현대·BD가 모두 등장하고 그보다 앞선 타사 발화가 없는 경우'만.
+    (예: 'Tesla? Or Hyundai maybe?' → W-TESLA — 현장 밤 코딩과 동일)
+    """
     t = (text or "").strip()
     if not t:
         return "DK"
+    first = _first_company(t)
     hy = _hit(t, dict(C.COMPANY_PATTERNS)["HYUNDAI"])
     bd = _hit(t, dict(C.COMPANY_PATTERNS)["BOSTON"])
-    if hy and bd:
-        return "A3"
-    if hy:
-        return "A1"
-    if bd:
-        return "A2"
-    first = _first_company(t)
+    if first in ("HYUNDAI", "BOSTON"):
+        if hy and bd:
+            return "A3"
+        return "A1" if first == "HYUNDAI" else "A2"
     if first == "GENESIS":
         return "G"
     if first:

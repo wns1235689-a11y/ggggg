@@ -20,6 +20,8 @@ from harness_paths import RUNS_DIR, run_dir
 ap = argparse.ArgumentParser()
 ap.add_argument("pool_id")
 ap.add_argument("--run-id", default=None)
+ap.add_argument("--defect-rate", type=float, default=0.0,
+                help="비상기 거리층 Q1에 추가 누출을 이 확률로 주입(임계 초과 픽스처 — P2-11)")
 a = ap.parse_args()
 pool_dir = os.path.join(RUNS_DIR, a.pool_id)
 metas = json.load(open(f"{pool_dir}/pool_meta.json", encoding="utf-8"))
@@ -58,7 +60,8 @@ def rows_for(m, rng):
     magY = 0
     magv = []
     if m["pop"] == "gp_zandvoort" and G > 0:
-        magY = int(rng.binomial(G, 0.5)) if m["magma"] else int(rng.binomial(G, 0.05))
+        # 묵종 미주입 결정(P2-01 정합): 상태 False면 Y=0이 규율 준수 응답
+        magY = int(rng.binomial(G, 0.5)) if m["magma"] else 0
         depth = m.get("magma_depth") or "vague"
         magv = [str(rng.choice(MAGMA_V[depth if depth in MAGMA_V else "vague"])) for _ in range(magY)]
     mag = [magY, (G - magY) if m["pop"] == "gp_zandvoort" else 0]
@@ -68,17 +71,24 @@ def rows_for(m, rng):
 
 
 lines = []
+leak_pids, echo_pids = [], []
 leak_done = echo_done = False
 for m in metas:
     rng = np.random.default_rng([cfg["RUN_SEED"], m["pid"], 99])
     r = rows_for(m, rng)
     if not leak_done and m["pop"] == "street_rtm" and not m["unaided_genesis"]:
         r["q1_lists"][0] = "BMW, Genesis, Audi"      # 의도 결함 ① 비보조 누출
+        leak_pids.append(m["pid"])
         leak_done = True
+    elif a.defect_rate > 0 and m["pop"] == "street_rtm" and not m["unaided_genesis"] \
+            and rng.random() < a.defect_rate:
+        r["q1_lists"][0] = "Mercedes, Genesis"
+        leak_pids.append(m["pid"])
     if not echo_done and m["know"]["GENESIS"] == "no":
         r["G_dist"] = [6, 4]                          # 의도 결함 ② 에코 위반
         if m["pop"] == "gp_zandvoort":
             r["magma_dist"] = [0, 6]
+        echo_pids.append(m["pid"])
         echo_done = True
     lines.append(json.dumps({"type": "result", "result": r}, ensure_ascii=False))
 
@@ -87,8 +97,9 @@ open(f"{dst}/journal.jsonl", "w", encoding="utf-8").write("\n".join(lines) + "\n
 for nm in ("prof.json", "pool_meta.json", "run_cfg.json"):
     shutil.copy2(f"{pool_dir}/{nm}", f"{dst}/{nm}")
 json.dump({"run_id": run_id, "journal_file": "journal.jsonl", "mock": True,
+           "defects": {"leak_pids": leak_pids, "echo_pids": echo_pids},   # 단언 스크립트용(P2-11)
            "params": {"survey_id": "genesis_eu26", "script": "surveys/genesis_eu26/wf_genesis.js",
                       "pool_id": a.pool_id, "effort": "mock", "dry_run": True,
                       "N": cfg["N"], "note": "MOCK — 파이프라인 검증 전용, 예측 인용 금지"}},
           open(f"{dst}/params.json", "w"), ensure_ascii=False, indent=1)
-print(f"mock 저널 생성: {run_id} (N={len(metas)}, 의도결함: 비보조누출1·에코1)")
+print(f"mock 저널 생성: {run_id} (N={len(metas)}, 의도결함: 비보조누출{len(leak_pids)}·에코{len(echo_pids)})")

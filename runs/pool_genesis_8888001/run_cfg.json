@@ -1,1 +1,1 @@
-{"N": 65, "RUN_SEED": 8888001, "survey_id": "genesis_eu26", "scenario": "neutral", "n_street": 25, "n_gp": 40}
+{"N": 65, "RUN_SEED": 8888001, "survey_id": "genesis_eu26", "scenario": "neutral", "n_street": 25, "n_gp": 40, "mult_norm": {"street_rtm": {"POLESTAR": 1.0388, "LEXUS": 1.0034, "GENESIS": 0.9388, "MAGMA": 0.7079}, "gp_zandvoort": {"POLESTAR": 1.0738, "LEXUS": 0.995, "GENESIS": 1.3292, "MAGMA": 0.8749}}, "config_sha256_16": "ec41c8d7bb053d6c", "wf_sha256_16": "da20bdbf91632871", "git_head": "7ebd5c5"}

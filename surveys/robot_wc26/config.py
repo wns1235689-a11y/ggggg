@@ -23,7 +23,6 @@ v1.1(2026-08-09): 감사3(새 경로 1–7) 반영 — tv_live 하향(부정증�
       보완 A–I(supplementairesearchaudit.md, 2026-08-09). 이하 '감사1'·'감사2'.
 """
 
-GLOBAL_SEED = 20260809
 SCENARIOS = ("conservative", "neutral", "optimistic")
 SCEN_IDX = {"conservative": 0, "neutral": 1, "optimistic": 2}
 
@@ -179,41 +178,69 @@ COMPANY_PATTERNS = [
     ("KIA", ["kia"]),   # 감사3: Kia 스폰서 인지 15~24% — 형제 브랜드 오답 후보(정답 아님)
     ("SAMSUNG", ["samsung"]), ("HONDA", ["honda", "asimo"]), ("SONY", ["sony"]),
     ("XIAOMI", ["xiaomi"]), ("OPENAI", ["openai"]), ("AMAZON", ["amazon"]),
-    ("APPLE", ["apple"]), ("FIGURE", ["figure"]), ("UNITREE", ["unitree"]),
+    ("APPLE", ["apple"]),
+    ("FIGURE", ["figure ai", "figure robotics", "figure 01", "figure 02"]),  # F4: 동사 'figure' 오매칭 차단
+    ("UNITREE", ["unitree"]),
     ("DEEPMIND", ["deepmind"]), ("NVIDIA", ["nvidia"]),
 ]
 DESC_KEYS = ["robot dog", "dog robot", "robot dogs", "spot", "parkour", "backflip",
              "dancing robot", "that robot company", "the robot company", "viral robot",
              "famous robot", "military", "darpa", "youtube robot"]
-DK_KEYS = ["no idea", "don't know", "dont know", "no clue", "not sure", "couldn't say",
-           "couldnt say", "nope", "sorry", "who knows", "never heard"]
+DK_KEYS = ["no idea", "don't know", "dont know", "dunno", "no clue", "not sure",
+           "couldn't say", "couldnt say", "couldn't tell", "couldnt tell", "hard to say",
+           "nope", "sorry", "who knows", "never heard"]
 
 # ─────────────────────────────────────────────────────────────────────────
 # 7. 사전등록 가설(judge가 이 목록을 판정) — 밴드 = 예측, 현장 실측이 대조
+#
+# [밴드 의미론 — 판정단 P1-02 반영] Q1_BANDS 등 상태 밴드는 **노출/지식 '상태' 확률**이다.
+# 현장이 측정하는 관측량(Q1=Y율)은 상태×발화의 합성으로, 기대 관측량은
+#   E[Q1Y] = p_노출 × (0.6×0.9 + 0.4×0.55) ≈ p_노출 × 0.76   [운영: clear 0.9·faint 0.55 가정]
+# judge가 이 파생 기대치를 병기한다. 현장 대조는 관측량 기준으로 한다.
+#
+# [계층 선언 — P2-07 반영] layer: "전파"=상류 주입의 재확인 / "LLM"=순수 모델 기여 /
+# "혼합"=구조 골격(지식상태 빈도) 위의 LLM 행동. judge가 골격값을 병기한다.
+# [판정 어휘 — P2-10] 시뮬 verdict는 '전파 확인/자기일관/기제 이상/판정 유보'만.
+# '지지/반증'은 현장 대조 계층 전용.
 # ─────────────────────────────────────────────────────────────────────────
 PREREG = [
-    {"id": "H1", "claim": "Q1=Y층의 Q2 최다 카테고리는 DK(모름)", "band": (0.40, 0.60),
-     "basis": "[근사] BD 비보조 상기 낮음 + 7주 감쇠 + CrowdReact 구조"},
+    {"id": "H1", "claim": "Q1=Y층의 Q2 최다 카테고리는 모름 — 이중 정의(P1-05): "
+                          "DK+DESC(부록 재코딩 후)와 DK_strict(§6 그대로) 각각 판정",
+     "band": (0.40, 0.60),          # DK+DESC 정의가 이 밴드를 승계
+     "band_strict": (0.25, 0.45),   # DK_strict(서술형 답이 DK로 안 접힘) [스윕]
+     "layer": "혼합", "basis": "[근사] BD 비보조 상기 낮음 + 7주 감쇠 + CrowdReact 서술가능 24%"},
     {"id": "H2", "claim": "특정 기업 오답 1위는 Tesla (W-KIA 등 유명·형제 브랜드 오답도 등장)", "band": None,
-     "basis": "[근사] Optimus 반복 노출(가용성 휴리스틱) + 유명브랜드 오귀속 실측(비스폰서 Nike 32% 회상)"},
-    {"id": "H3", "claim": "BD 명명(A2+A3) ≥ 현대 명명(A1+A3)의 약 2배", "band": (1.5, 6.0),
-     "basis": "[근사] 리업로드 BD 잔존·현대 탈락 + 소유인지 조사 부재"},
-    {"id": "H4", "claim": "분기A(BD 명명자 소유주 프로브)의 현대 정답 15~30% + Google/SoftBank 낡은답 존재",
-     "band": (0.15, 0.30), "basis": "[근사] 소유체인 Google→SoftBank→현대(80%, 잔여 취득 추진중)"},
-    {"id": "H5", "claim": "채널믹스 S+N ≫ L (L-주장률이 시뮬 상단 초과 시 '기억 재구성' 해석)",
-     "band": None, "basis": "[스윕·입력전파] 월드피드 송출 불명 — L 0 포함. 사전등록 해석규칙"},
-    {"id": "H6", "claim": "국가 Q1=Y 서열 BE > DE > NL", "band": None,
-     "basis": "[입력전파] 자국 생존·중계 접근성 밴드의 전파 — 시뮬 발견 아님"},
-    {"id": "H7", "claim": "현장 n=150에서 분기A 발동 15회 미만(소표본 경고)", "band": None,
-     "basis": "Y율×BD명명률 곱의 규모 — 분기A 데이터는 일화 수준 예상"},
-    {"id": "H8", "claim": "Q3 연령 경사: <30 E↑ / 50+ W↑", "band": None,
-     "basis": "[실측방향] Pew·SP554 연령 경사"},
+     "layer": "LLM", "basis": "[근사] Optimus 반복 노출(가용성 휴리스틱) + 유명브랜드 오귀속 실측(비스폰서 Nike 32%)"},
+    {"id": "H3", "claim": "BD 명명 ≥ 현대 명명의 약 2배 — 현장 §6 정의(프로브 정답 A3 승격 포함)로 집계",
+     "band": (1.5, 6.0), "min_denom": 5, "layer": "혼합",
+     "basis": "[근사] 리업로드 BD 잔존·현대 탈락 + 소유인지 조사 부재. 골격=지식상태 빈도"},
+    {"id": "H4", "claim": "분기A(Q2에서 BD'만' 말한 사람의 소유주 프로브)의 현대 정답 15~30% + Google/SoftBank 낡은답",
+     "band": (0.15, 0.30), "min_denom": 8, "field_only": True, "layer": "혼합",
+     "basis": "[근사·현장 전용 판정] 시뮬 구조상 프로브A 정답은 both층의 'Q2 부분공개' 행동에 의존(P2-02) — "
+              "시뮬은 골격값·부분공개율만 보고, 밴드 판정은 현장 데이터로만"},
+    {"id": "H5", "claim": "채널믹스 S+N ≫ L — 매핑 규칙(P1-07): 현장 'L 1회 이상 주장률' vs 시뮬 tv_live 단일 "
+                          "배정률을 대조. W(지인)는 질문 문구에 없어 자발 발화만 — 현장 W ≈ 0 예상. "
+                          "L-주장률이 시뮬 상단(0.08) 초과 시 '기억 재구성' 해석",
+     "band": None, "layer": "전파", "basis": "[스윕·입력전파] 월드피드 송출 불명 — L 0 포함"},
+    {"id": "H6", "claim": "국가 Q1=Y 서열 BE > DE > NL — 국가별 평균 조사일이 3일+ 벌어지면 감쇠 교락 주석 필수(P4-05)",
+     "band": None, "layer": "전파", "basis": "[입력전파] 자국 생존·중계 접근성 밴드 — 시뮬 발견 아님"},
+    {"id": "H7", "claim": "현장 n=150에서 분기A 발동 15회 미만(소표본 경고) — grp 제외 유효 n으로 투영(P1-06)",
+     "band": None, "layer": "전파", "basis": "Y율×BD단독률×(1-grp비중) — 분기A 데이터는 일화 수준 예상"},
+    {"id": "H8", "claim": "Q3 연령 경사: <30 E↑ / 50+ W↑ — 현장 경사는 연령 눈추정 오분류로 감쇠 예상: "
+                          "방향만 판정, 크기 비교 금지(P1-12)",
+     "band": None, "layer": "LLM", "basis": "[실측방향] Pew·SP554 연령 경사 (성향 라벨은 준상수 — 수준 앵커 미전파)"},
     {"id": "H9", "claim": "현장 Y응답 일부는 Spot/로봇개 뉴스와의 혼동 — verbatim의 'dog' 계열 발화가 식별 마커",
-     "band": None,
+     "band": None, "layer": "전파",
      "basis": "[실측·존재] EU Spot 기사 5건(현대/BD 명시) + 멕시코 Unitree 별개 보도 — 크기는 [스윕]"},
 ]
 
-FIELD_PLAN = {"n_min": 60, "n_target": 150, "per_city_cap": 15, "branchA_warn_min": 15}
+FIELD_PLAN = {"n_min": 60, "n_target": 150, "per_city_cap": 15, "branchA_warn_min": 15,
+              # P1-06: grp(일행 오염) 행은 헤드라인 전체 제외(§5 규칙). 예상 grp 비중 [운영]
+              "grp_share_expected": (0.10, 0.18, 0.25),
+              "grp_rule": "grp 태그 행은 헤드라인 분모에서 제외 — 유효 n 투영 시 (1-grp비중) 곱해 하향",
+              # P1-10: 모든 밴드는 '접근-동의-완주자' 기준 — 오프닝이 주제(robots)를 공개하므로
+              # 주제 관심 방향의 자기선택 편향(상향)이 내재함을 사전등록로 명시
+              "population_note": "완주자 기준 예측(주제 관심 선택편향 내재·상향 방향)"}
 
 # 시나리오 헬퍼
 def band(t, scenario):

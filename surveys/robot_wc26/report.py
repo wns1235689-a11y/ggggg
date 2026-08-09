@@ -33,7 +33,7 @@ def _fmt(v, dash="—"):
 
 
 def _prereg_table():
-    L = ["## ① 사전등록 가설·밴드 (config v1.0 — 잠금 대상)", "",
+    L = ["## ① 사전등록 가설·밴드 (config v1.1 — 잠금 대상)", "",
          "| ID | 주장 | 밴드 | 근거 등급 |", "|---|---|---|---|"]
     for h in C.PREREG:
         band = f"{h['band'][0]}–{h['band'][1]}" if h.get("band") else "—"
@@ -72,19 +72,21 @@ def _judge_section(j):
     for h in j["hypotheses"]:
         hid = h["id"]
         if hid == "H1":
-            res = f"DK {h['value']}"
+            res = f"DK+DESC {_fmt(h['dk_plus_desc'])} / strict {_fmt(h['dk_strict'])} (골격 none={h['skeleton_none_share']})"
         elif hid == "H2":
             res = "오답랭킹 " + ", ".join(f"{k}:{v}" for k, v in h["wrong_ranking"][:3]) if h["wrong_ranking"] else "오답 없음"
         elif hid == "H3":
-            res = f"BD {h['bd_named']} vs 현대 {h['hyundai_named']} (비 {_fmt(h['ratio'])})"
+            res = (f"BD {h['bd_named']} vs 현대 {h['hyundai_named']} (비 {_fmt(h['ratio'])}, "
+                   f"승격 {h['promoted']}, 골격비 {_fmt(h['skeleton_ratio'])})")
         elif hid == "H4":
-            res = f"프로브A n={h['probeA_n']}, 현대 {_fmt(h['hyundai_share'])}, 낡은답 {h['stale_present']}"
+            res = (f"프로브A n={h['probeA_n']}, sim 현대 {_fmt(h['hyundai_share_sim'])}, "
+                   f"골격 {_fmt(h['skeleton_both_given_bd'])}, 낡은답 {h['stale_present']} [현장밴드 {h['field_band']}]")
         elif hid == "H5":
             res = f"tv_live 점유 {h['tv_live_share']} (주입)"
         elif hid == "H6":
             res = json.dumps(h["q1_by_country"], ensure_ascii=False)
         elif hid == "H7":
-            res = f"n=150 투영 분기A ≈{h['projected_branchA_at_n150']}회"
+            res = f"유효 n={h['effective_n']}(grp 제외) 투영 분기A ≈{h['projected_branchA']}회"
         elif hid == "H8":
             res = f"E: <30 {h['excited']['<30']} vs 50+ {h['excited']['50+']} / W: {h['worried']['<30']} vs {h['worried']['50+']}"
         elif hid == "H9":
@@ -93,8 +95,12 @@ def _judge_section(j):
         else:
             res = "—"
         L.append(f"| {hid} | {res} | {h['verdict']} |")
+    if j.get("observed_space"):
+        o = j["observed_space"]
+        L.append(f"\n### 관측공간 파생 기대치 (P1-02 — 현장 대조 기준)")
+        L.append(f"- {o['formula']} · 풀 기대 Q1Y {_fmt(o['pool_expected_q1y'])} vs 실현 {_fmt(o['realized_q1y'])}")
     if j.get("q3_vs_anchor"):
-        L.append("\n### Q3 국가별 vs 앵커 (참고 — 성향 주입으로 부분 순환)")
+        L.append("\n### Q3 국가별 vs 앵커 (성향 라벨 준상수 — 사실상 무순환 대조)")
         L.append("\n| 국가 | sim E/W/M | 앵커 E/W/M | Δpp |\n|---|---|---|---|")
         for k, v in j["q3_vs_anchor"].items():
             L.append(f"| {k} | {v['sim_EWM']} | {v['anchor_EWM']} | {v['delta_pp']} |")

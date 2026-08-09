@@ -37,12 +37,13 @@ Q1 "Did you happen to see or hear about a humanoid robot performing at this summ
 Q2 (Q1=Yes인 사람만) "Do you happen to know which company is behind that robot?"
 → q2_verbatim: **Yes 인원수와 같은 개수**의 문자열. 각 사람이 실제로 입으로 말할 답 원문(영어 한 줄). 모름·엉뚱한 추측·부분 서술·반문 전부 허용 — 이 유형의 지식 상태와 모순되지 않게. (지식이 없어도 추측하는 사람은 있다 — 단 그 추측이 우연히 정답이 되게 하지 마라.)
 
-프로브A (q2에서 Boston Dynamics를 말한 사람만) "Do you know who owns Boston Dynamics these days?"
+프로브A (q2에서 **Boston Dynamics만**(현대 미언급) 말한 사람만) "Do you know who owns Boston Dynamics these days?"
 → probeA_verbatim: 그 인원수만큼의 답 원문. 없으면 [].
-프로브B (q2에서 Hyundai를 말한 사람만) "Do you know the name of the robot company that built it?"
+프로브B (q2에서 **Hyundai만**(BD 미언급) 말한 사람만) "Do you know the name of the robot company that built it?"
 → probeB_verbatim: 그 인원수만큼의 답 원문. 없으면 [].
+★분기C(통대본 §4): 한 사람이 두 회사를 한꺼번에 말하면("Boston Dynamics... it's Hyundai's, right?") **추가 질문 없음** — 그 사람은 어느 프로브에도 답하지 않는다.
 
-Q3 (전원) "In general, when you think about robots becoming part of everyday life, would you say you feel more excited, more worried, or mixed?"
+Q3 (전원) "Last one — in general, when you think about robots becoming part of everyday life, would you say you feel more excited, more worried, or mixed?"
 → Q3_dist [more excited / more worried / mixed] 10명 분포. 이 유형의 정서 성향·거주국·연령대를 반영하되 한쪽에 몰지 마라.`
 }
 phase('ROBOT')

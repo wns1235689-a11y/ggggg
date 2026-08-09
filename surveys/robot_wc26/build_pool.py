@@ -129,6 +129,7 @@ def sample_persona(pid):
     tri = tri / tri.sum()
     senti = ["기대 쪽", "우려 쪽", "혼합(양가) 쪽"][int(np.argmax(tri))]
 
+    meta_p_exposed = min(base * mult, C.EXPOSURE_P_CAP)   # 드리프트 체크용 기대확률(P2-08)
     prof = {
         "pid": pid, "도시": city, "도시국가": ccountry, "거주국": res,
         "관광객": tourist, "연령대": age,
@@ -146,6 +147,7 @@ def sample_persona(pid):
         "q3_tri": [round(float(x), 3) for x in tri],
         "exposed": exposed, "strength": strength, "channel": channel,
         "conflated": conflated, "knowledge": know,
+        "p_exposed": round(meta_p_exposed, 4),   # 기대확률(드리프트 z-체크·관측공간 파생용)
     }
     return prof, meta
 
@@ -157,7 +159,27 @@ for pid in range(N):
     metas.append(m)
 
 pool_id = f"pool_robot_{SEED}"
-cfg = {"N": N, "RUN_SEED": SEED, "survey_id": "robot_wc26", "scenario": SCEN}
+
+
+def _sha(path):
+    import hashlib
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
+
+
+def _git_head():
+    import subprocess
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=_REPO,
+                              capture_output=True, text=True, timeout=5).stdout.strip() or None
+    except Exception:
+        return None
+
+
+# 봉인 무결성(P4-02): 어떤 config·wf로 생성된 풀인지 해시로 박제
+cfg = {"N": N, "RUN_SEED": SEED, "survey_id": "robot_wc26", "scenario": SCEN,
+       "config_sha256_16": _sha(os.path.join(_HERE, "config.py")),
+       "wf_sha256_16": _sha(os.path.join(_HERE, "wf_robot.js")),
+       "git_head": _git_head()}
 for d in (SP, run_dir(pool_id, create=True)):
     os.makedirs(d, exist_ok=True)
     json.dump(profs, open(f"{d}/prof.json", "w"), ensure_ascii=False)

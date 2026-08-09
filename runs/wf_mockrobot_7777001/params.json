@@ -2,6 +2,14 @@
  "run_id": "wf_mockrobot_7777001",
  "journal_file": "journal.jsonl",
  "mock": true,
+ "defects": {
+  "leak_pids": [
+   1
+  ],
+  "echo_pids": [
+   0
+  ]
+ },
  "params": {
   "survey_id": "robot_wc26",
   "script": "surveys/robot_wc26/wf_robot.js",

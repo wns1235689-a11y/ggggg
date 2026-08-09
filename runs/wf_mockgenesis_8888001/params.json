@@ -2,6 +2,14 @@
  "run_id": "wf_mockgenesis_8888001",
  "journal_file": "journal.jsonl",
  "mock": true,
+ "defects": {
+  "leak_pids": [
+   0
+  ],
+  "echo_pids": [
+   0
+  ]
+ },
  "params": {
   "survey_id": "genesis_eu26",
   "script": "surveys/genesis_eu26/wf_genesis.js",

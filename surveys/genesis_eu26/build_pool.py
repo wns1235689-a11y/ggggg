@@ -24,7 +24,7 @@ from harness_paths import SP, run_dir
 ap = argparse.ArgumentParser(description="제네시스 설문 표본 풀 생성(2모집단)")
 ap.add_argument("--n-street", type=int, default=25, help="로테르담 거리 표본(현장 목표 20~30)")
 ap.add_argument("--n-gp", type=int, default=40, help="GP 팬존 표본(현장 목표 30~50)")
-ap.add_argument("--n", type=int, default=None, help="총 N 지정 시 6:10 비율로 분할(하니스 호환)")
+ap.add_argument("--n", type=int, default=None, help="총 N 지정 시 거리:GP=25:40 비율로 분할(하니스 호환)")
 ap.add_argument("--seed", type=int, default=None)
 ap.add_argument("--scenario", default="neutral", choices=list(C.SCENARIOS))
 a = ap.parse_args()
@@ -32,14 +32,46 @@ a = ap.parse_args()
 SEED = a.seed if a.seed is not None else int.from_bytes(os.urandom(4), "big") % 90_000_000 + 10_000_000
 SCEN = a.scenario
 if a.n is not None:
+    if a.n < 2:
+        raise SystemExit("[build] --n은 2 이상(거리·GP 각 1명 필요)")
     n_street = max(1, round(a.n * 25 / 65))
-    n_gp = max(1, a.n - n_street)
+    n_gp = a.n - n_street                      # F11: 요청 N 초과 방지
 else:
     n_street, n_gp = a.n_street, a.n_gp
 N = n_street + n_gp
 
 BRANDS = ["BMW", "LEXUS", "POLESTAR", "GENESIS"]
 KNOW_LBL = {"knows": "안다(확실히 본 적 있음)", "vague": "어렴풋(본 것 같기도)", "no": "모른다"}
+
+
+def _mult_norm():
+    """승수의 모집단 기대값을 수치 산출(P2-04 — 손계산 상수 폐지).
+    고정 서브시드 MC(20만) → 결정론·시드 무관. '선언 밴드 = 기대 knows율' 불변식 유지."""
+    out = {}
+    mc = np.random.default_rng(20260809)
+    n = 200_000
+    for pop in C.POPULATIONS:
+        ev = np.clip(mc.normal(*C.LATENT_SPECS["ev_interest"][pop], n), 0, 1)
+        car = np.clip(mc.normal(*C.LATENT_SPECS["car_interest"][pop], n), 0, 1)
+        wec = np.clip(mc.normal(*C.LATENT_SPECS["wec_follow"][pop], n), 0, 1)
+        f1m = np.clip(mc.normal(*C.LATENT_SPECS["nl_f1_media"][pop], n), 0, 1)
+        ages = mc.choice(3, n, p=C.AGE_MIX[pop])
+
+        def age_m(table):
+            return np.array([table["<30"], table["30-50"], table["50+"]])[ages]
+        pol = (C.POLESTAR_EV_MULT[0] + C.POLESTAR_EV_MULT[1] * ev) * age_m(C.AGE_MULT["POLESTAR"])
+        lex = age_m(C.AGE_MULT["LEXUS"])
+        gen = C.GENESIS_CAR_MULT[0] + C.GENESIS_CAR_MULT[1] * car
+        if pop == "gp_zandvoort":
+            gen = gen * np.where(wec > 0.5, C.GENESIS_WEC_MULT, 1.0) \
+                * (C.GENESIS_F1MEDIA_MULT[0] + C.GENESIS_F1MEDIA_MULT[1] * f1m)
+        magma = np.where(wec > 0.5, 1.5, 0.7)
+        out[pop] = {"POLESTAR": float(pol.mean()), "LEXUS": float(lex.mean()),
+                    "GENESIS": float(gen.mean()), "MAGMA": float(magma.mean())}
+    return out
+
+
+NORM = _mult_norm()
 
 
 def lvl(x):
@@ -63,24 +95,26 @@ def sample_persona(pid, pop):
     context = pick_w(rng, C.GP_CONTEXTS) if pop == "gp_zandvoort" else "street"
     lat = {k: clip01(rng.normal(*spec[pop])) for k, spec in C.LATENT_SPECS.items()}
 
-    # ── 브랜드별 인지 상태 주입 [스윕 밴드 → knows/vague/no] ──
-    know = {}
+    # ── 브랜드별 인지 상태 주입 [스윕 밴드 → knows/vague/no] — 승수는 NORM으로 평균 보존 ──
+    know, p_know = {}, {}
     for b in BRANDS:
         p = C.band(C.AIDED_BANDS[pop][b], SCEN)
         if b == "POLESTAR":
             p *= (C.POLESTAR_EV_MULT[0] + C.POLESTAR_EV_MULT[1] * lat["ev_interest"])
             p *= C.AGE_MULT["POLESTAR"][age]
-            p /= C.MULT_NORM["POLESTAR"][pop]      # 평균 보존(선언 밴드=기대 주입률)
+            p /= NORM[pop]["POLESTAR"]
         elif b == "LEXUS":
             p *= C.AGE_MULT["LEXUS"][age]
+            p /= NORM[pop]["LEXUS"]
         elif b == "GENESIS":
             p *= (C.GENESIS_CAR_MULT[0] + C.GENESIS_CAR_MULT[1] * lat["car_interest"])
             if pop == "gp_zandvoort":
                 if lat["wec_follow"] > 0.5:
                     p *= C.GENESIS_WEC_MULT
                 p *= (C.GENESIS_F1MEDIA_MULT[0] + C.GENESIS_F1MEDIA_MULT[1] * lat["nl_f1_media"])
-            p /= C.MULT_NORM["GENESIS"][pop]       # 평균 보존
+            p /= NORM[pop]["GENESIS"]
         p = min(p, 0.995)
+        p_know[b] = round(p, 4)                    # 드리프트 z-체크용 기대확률(P2-08)
         u = rng.random()
         know[b] = "knows" if u < p else ("vague" if u < p + C.VAGUE_MARGIN else "no")
 
@@ -92,7 +126,8 @@ def sample_persona(pid, pop):
     # 마그마(GP 전용·Genesis 인지자 조건부)
     magma, magma_depth = False, None
     if pop == "gp_zandvoort" and know["GENESIS"] in ("knows", "vague"):
-        pm = C.band(C.MAGMA_GIVEN_GENESIS_GP, SCEN) * (1.5 if lat["wec_follow"] > 0.5 else 0.7)
+        pm = C.band(C.MAGMA_GIVEN_GENESIS_GP, SCEN) \
+            * (1.5 if lat["wec_follow"] > 0.5 else 0.7) / NORM[pop]["MAGMA"]   # P2-03 정규화
         magma = bool(rng.random() < min(pm, 0.9))
         if magma:
             spec_p = C.MAGMA_DEPTH["specific_if_wec"] if lat["wec_follow"] > 0.5 \
@@ -117,24 +152,53 @@ def sample_persona(pid, pop):
     meta = {
         "pid": pid, "pop": pop, "context": context, "res_country": res, "age": age,
         "latent": {k: round(v, 3) for k, v in lat.items()},
-        "know": know, "unaided_genesis": unaided_genesis,
+        "know": know, "p_know": p_know, "unaided_genesis": unaided_genesis,
         "magma": magma, "magma_depth": magma_depth, "yes_saying": yes_saying,
     }
     return prof, meta
 
 
+# F6: 거리·GP를 교차(interleave) 배치 — 러너의 접두 슬라이스 dry-run(N≤2)이
+# 두 모집단을 모두 스모크하도록(마그마 분기 포함). pid는 배치 순서 그대로 부여.
+seq = []
+si, gi = 0, 0
+while si < n_street or gi < n_gp:
+    if si < n_street:
+        seq.append("street_rtm")
+        si += 1
+    if gi < n_gp:
+        seq.append("gp_zandvoort")
+        gi += 1
 profs, metas = [], []
-pid = 0
-for pop, n_pop in (("street_rtm", n_street), ("gp_zandvoort", n_gp)):
-    for _ in range(n_pop):
-        p, m = sample_persona(pid, pop)
-        profs.append(p)
-        metas.append(m)
-        pid += 1
+for pid, pop in enumerate(seq):
+    p, m = sample_persona(pid, pop)
+    profs.append(p)
+    metas.append(m)
 
 pool_id = f"pool_genesis_{SEED}"
+
+
+def _sha(path):
+    import hashlib
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
+
+
+def _git_head():
+    import subprocess
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=_REPO,
+                              capture_output=True, text=True, timeout=5).stdout.strip() or None
+    except Exception:
+        return None
+
+
+# 봉인 무결성(P4-02) + 정규화 상수 박제(재현 감사용)
 cfg = {"N": N, "RUN_SEED": SEED, "survey_id": "genesis_eu26", "scenario": SCEN,
-       "n_street": n_street, "n_gp": n_gp}
+       "n_street": n_street, "n_gp": n_gp,
+       "mult_norm": {p: {k: round(v, 4) for k, v in d.items()} for p, d in NORM.items()},
+       "config_sha256_16": _sha(os.path.join(_HERE, "config.py")),
+       "wf_sha256_16": _sha(os.path.join(_HERE, "wf_genesis.js")),
+       "git_head": _git_head()}
 for d in (SP, run_dir(pool_id, create=True)):
     os.makedirs(d, exist_ok=True)
     json.dump(profs, open(f"{d}/prof.json", "w"), ensure_ascii=False)

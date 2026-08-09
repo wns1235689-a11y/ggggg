@@ -67,17 +67,23 @@ def _judge_section(j):
         hid = h["id"]
         if hid == "GH1":
             res = f"비보조 Genesis {h['unaided_genesis_rate_street']} ({h['mentions']}건) · 상위: " + \
-                  ", ".join(f"{b}:{c}" for b, c in h["street_unaided_top"][:5])
+                  ", ".join(f"{b}:{c}" for b, c in h["street_unaided_top"][:5]) + " (*=카드 브랜드·판독 제외)"
         elif hid == "GH2":
-            res = json.dumps(h["street_card_shares"], ensure_ascii=False)
+            res = (f"관측 {json.dumps(h['street_card_shares_observed'], ensure_ascii=False)} · "
+                   f"상태 Genesis {_fmt(h['street_knows_states'].get('GENESIS'))} "
+                   f"[파생관측밴드 {h['derived_obs_band_genesis']}]")
         elif hid == "GH3":
-            res = f"GP {h['genesis_gp']} vs 거리 {h['genesis_street']} (배수 {_fmt(h['ratio'])})"
+            res = (f"상태비 {_fmt(h['state_ratio'])} (knows GP {_fmt(h['knows_gp'])} vs 거리 {_fmt(h['knows_street'])}) · "
+                   f"관측 카드비 {_fmt(h['card_ratio_observed'])}")
         elif hid == "GH4":
-            res = f"P(마그마|GenesisY)={_fmt(h['p_magma_given_genesis'])} · 깊이 {h['depth_coded']}"
+            res = (f"P(마그마|GenY)={_fmt(h['p_magma_given_genesis'])} (분모 {h['denom_gen_y']}) · "
+                   f"깊이 {h['depth_coded']}")
         elif hid == "GH5":
-            res = f"<30 {h['young']} / 50+ {h['old']}"
+            res = " / ".join(f"{p}: young_ev {s['young_ev']['POLESTAR']}vs{s['young_ev']['LEXUS']}"
+                             f"(n={s['young_ev']['n']}) → {s['pattern']}"
+                             for p, s in h["by_pop"].items())
         elif hid == "GH6":
-            res = f"예스세잉 실현 {_fmt(h['yes_saying_realized'])}"
+            res = f"예스세잉 실현 {_fmt(h['yes_saying_realized'])} (주입 {h['injected']})"
         elif hid == "GH7":
             res = json.dumps(h["projected_genesis_y"])
         elif hid == "GH8":
@@ -96,7 +102,8 @@ def _field_protocol():
 
 1. 시트를 브랜드 정규화(coding.norm_brands 규칙)로 판정 → GH1~GH8 표와 1:1 대조.
 2. **BMW 품질 앵커**: BMW=N 응답은 현장 규칙대로 품질의심 태그 — 헤드라인 분모에서 별도 표기.
-3. **grp 태그 행 제외** 후 대조(첫 응답자만 클린 — 현장 규칙 그대로).
+3. **grp 규칙(매뉴얼 원문 그대로)**: Q1 비보조는 grp 행 제외(앞사람 답 오염), **카드 4종 Y/N은
+   grp 행도 유효**("로고 인지는 각자 유효" — DAY1 ①-1). 문항별로 분모가 달라짐에 유의.
 4. Genesis 카드 Y는 **상한 해석**(GH6): 실측 Y율이 예스세잉 바닥(2~8%)과 겹치면 "인지 존재" 주장 금지.
 5. GP↔거리 격차는 **방향·배수만**(GH7) — n이 작아 %p 차이 해석 금지. 로고카드 2버전 순서효과는
    버전별 분리 집계 후 합산.

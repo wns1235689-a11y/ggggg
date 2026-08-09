@@ -26,13 +26,22 @@ def genesis_position(q1_line):
     return brands.index("GENESIS") + 1 if "GENESIS" in brands else None
 
 
+def _hit(text, keys):
+    """단어 경계 매칭(F5: 'spa'가 Spain/space에 걸리는 substring 오매칭 차단)."""
+    t = (text or "").lower()
+    for k in keys:
+        if re.search(r"(?<![a-z])" + re.escape(k) + r"(?![a-z])", t):
+            return True
+    return False
+
+
 def magma_depth(verbatim):
-    """마그마 회상 원문 → 'specific'|'vague'|'none'."""
-    t = (verbatim or "").lower()
-    for k in C.MAGMA_SPECIFIC_KEYS:
-        if k in t:
-            return "specific"
-    for k in C.MAGMA_VAGUE_KEYS:
-        if k in t:
-            return "vague"
+    """마그마 회상 원문 → 'specific'|'vague'|'echo'|'none'.
+    echo(P1-08) = 질문이 제시한 어휘(Le Mans/WEC/racing)만 반복 — 지식 아닌 반향."""
+    if _hit(verbatim, C.MAGMA_SPECIFIC_KEYS):
+        return "specific"
+    if _hit(verbatim, C.MAGMA_VAGUE_KEYS):
+        return "vague"
+    if _hit(verbatim, C.MAGMA_ECHO_KEYS):
+        return "echo"
     return "none"

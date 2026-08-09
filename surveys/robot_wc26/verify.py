@@ -16,6 +16,8 @@ _REPO = os.path.dirname(os.path.dirname(_HERE))
 sys.path.insert(0, _REPO)
 
 import coding  # noqa: E402  (같은 디렉토리)
+import config as C  # noqa: E402
+import journal_io  # noqa: E402
 from harness_paths import SP, JOURNAL_BASE  # noqa: E402
 
 # 진단 계층 휴리스틱 임계(판정 임계 아님)
@@ -25,19 +27,17 @@ HOMOG_WARN_PCT = 55.0        # Q3 최빈패턴 점유
 
 
 def load_rows(run_id):
-    rows = {}
-    for line in open(os.path.join(JOURNAL_BASE, run_id, "journal.jsonl"), encoding="utf-8"):
-        o = json.loads(line)
-        r = o.get("result")
-        if o.get("type") == "result" and isinstance(r, dict) and "q2_verbatim" in r:
-            rows[r["pid"]] = r
-    return rows
+    rows, info = journal_io.load_rows(JOURNAL_BASE, run_id, "q2_verbatim")   # F8: gz·손상행 내성
+    return rows, info
 
 
 def run(run_id):
     meta = {m["pid"]: m for m in json.load(open(f"{SP}/pool_meta.json", encoding="utf-8"))}
-    rows = load_rows(run_id)
+    rows, jinfo = load_rows(run_id)
     N = len(rows)
+    if N == 0 and jinfo["missing"]:
+        return {"run_id": run_id, "N": 0, "diagnosable": False,
+                "note": "저널 파일 부재 — run_id·경로 확인(진행 중 아님)"}
     if N == 0:
         return {"run_id": run_id, "N": 0, "diagnosable": False, "note": "결과 없음(진행 중)"}
 
@@ -56,33 +56,55 @@ def run(run_id):
             echo_viol.append({"pid": pid, "why": f"비노출인데 Y={y}>2"})
     echo_rate = round(100 * len(echo_viol) / N, 1)
 
-    # ── ② 지식 누출: 무지식층 verbatim의 정답 발화 ──
+    # ── ② 지식 누출: raw-text 별칭 스캔(P4-01 — 최종 코드가 아닌 원문 매칭) ──
+    # 판정용 코딩(최초발화 우선)과 진단용 스캔은 역할이 다르다: 'Tesla? Or Hyundai maybe?'는
+    # 코딩상 W-TESLA지만, 무지식층이 정답을 입에 올린 것 자체가 누출이다. 프로브·부분지식층 포함(P2-02).
+    HY_KEYS = dict(C.COMPANY_PATTERNS)["HYUNDAI"]
+    BD_KEYS = dict(C.COMPANY_PATTERNS)["BOSTON"]
     leak_cases = []
-    n_uninformed_verbatim = 0
+    n_scanned_verbatim = 0
     for pid, r in rows.items():
         m = meta.get(pid)
-        if not m or m["knowledge"] not in ("none", "desc_only"):
+        if not m:
             continue
-        for v in r["q2_verbatim"]:
-            n_uninformed_verbatim += 1
-            c = coding.code_q2(v)
-            if c in ("A1", "A2", "A3"):
-                leak_cases.append({"pid": pid, "verbatim": v, "code": c})
+        know = m["knowledge"]
+        checks = []   # (verbatim, 금지 별칭, 사유)
+        if know in ("none", "desc_only"):
+            for v in r["q2_verbatim"]:
+                checks.append((v, HY_KEYS + BD_KEYS, "무지식층 q2 정답 발화"))
+        elif know == "bd_only":
+            for v in r["q2_verbatim"]:
+                checks.append((v, HY_KEYS, "bd_only q2 현대 발화(소유관계 모름 상태)"))
+            for v in r["probeA_verbatim"]:
+                checks.append((v, HY_KEYS, "bd_only probeA 현대 정답(무지 상태의 정답)"))
+        elif know == "hyundai_only":
+            for v in r["q2_verbatim"]:
+                checks.append((v, BD_KEYS, "hyundai_only q2 BD 발화(제작사명 모름 상태)"))
+            for v in r["probeB_verbatim"]:
+                checks.append((v, BD_KEYS, "hyundai_only probeB BD 정답"))
+        for v, keys, why in checks:
+            n_scanned_verbatim += 1
+            if coding._hit(v, keys):
+                leak_cases.append({"pid": pid, "verbatim": v, "why": why})
+    n_uninformed_verbatim = n_scanned_verbatim
     leak_rate = round(100 * len(leak_cases) / n_uninformed_verbatim, 1) if n_uninformed_verbatim else 0.0
 
-    # ── ③ 개수 정합: len(q2_verbatim)=Q1 Y수, 프로브 수=명명자 수 ──
+    # ── ③ 개수 정합: 합=10(F1)·len(q2_verbatim)=Q1 Y수·프로브 수=명명자 수 ──
     cnt_mismatch = []
     for pid, r in rows.items():
+        if sum(r["Q1_dist"]) != 10 or sum(r["Q3_dist"]) != 10:
+            cnt_mismatch.append({"pid": pid, "why": f"합≠10 (Q1 {sum(r['Q1_dist'])}, Q3 {sum(r['Q3_dist'])})"})
         y = r["Q1_dist"][0]
         if len(r["q2_verbatim"]) != y:
             cnt_mismatch.append({"pid": pid, "why": f"q2 {len(r['q2_verbatim'])}개 ≠ Y {y}"})
+        # 분기C 정합(P1-01): 프로브A=A2 단독, 프로브B=A1 단독. A3(양사 동시)는 프로브 없음.
         codes = [coding.code_q2(v) for v in r["q2_verbatim"]]
-        n_bd = sum(1 for c in codes if c in ("A2", "A3"))
-        n_hy = sum(1 for c in codes if c in ("A1", "A3"))
-        if abs(len(r["probeA_verbatim"]) - n_bd) > 1:
-            cnt_mismatch.append({"pid": pid, "why": f"probeA {len(r['probeA_verbatim'])} vs BD명명 {n_bd}"})
-        if abs(len(r["probeB_verbatim"]) - n_hy) > 1:
-            cnt_mismatch.append({"pid": pid, "why": f"probeB {len(r['probeB_verbatim'])} vs 현대명명 {n_hy}"})
+        n_bd_only = sum(1 for c in codes if c == "A2")
+        n_hy_only = sum(1 for c in codes if c == "A1")
+        if abs(len(r["probeA_verbatim"]) - n_bd_only) > 1:
+            cnt_mismatch.append({"pid": pid, "why": f"probeA {len(r['probeA_verbatim'])} vs BD단독(A2) {n_bd_only}"})
+        if abs(len(r["probeB_verbatim"]) - n_hy_only) > 1:
+            cnt_mismatch.append({"pid": pid, "why": f"probeB {len(r['probeB_verbatim'])} vs 현대단독(A1) {n_hy_only}"})
 
     # ── ④ 붕괴/동질성: verbatim 다양성·Q3 최빈패턴·UNCODED ──
     all_v = [v.strip().lower() for r in rows.values() for v in r["q2_verbatim"]]
@@ -112,7 +134,7 @@ def run(run_id):
                          "prescription": "coding.py 키워드 확장(수동 검토 목록 확인)"})
 
     return {
-        "run_id": run_id, "N": N, "diagnosable": True,
+        "run_id": run_id, "N": N, "diagnosable": True, "journal_skipped_lines": jinfo["skipped"],
         "echo": {"violation_rate_pct": echo_rate, "cases": echo_viol[:10]},
         "leak": {"uninformed_verbatims": n_uninformed_verbatim, "leak_rate_pct": leak_rate,
                  "cases": leak_cases[:10],
