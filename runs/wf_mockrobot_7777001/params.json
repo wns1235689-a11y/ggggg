@@ -1,0 +1,14 @@
+{
+ "run_id": "wf_mockrobot_7777001",
+ "journal_file": "journal.jsonl",
+ "mock": true,
+ "params": {
+  "survey_id": "robot_wc26",
+  "script": "surveys/robot_wc26/wf_robot.js",
+  "pool_id": "pool_robot_7777001",
+  "effort": "mock",
+  "dry_run": true,
+  "N": 40,
+  "note": "MOCK — 파이프라인 검증 전용, 예측 인용 금지"
+ }
+}

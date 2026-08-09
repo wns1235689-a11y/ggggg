@@ -1,0 +1,16 @@
+{
+  "survey_id": "gatec_v23",
+  "label": "게이트C v2.3 — 매실청 팟타이 (레거시 계보, 엔진 동결)",
+  "journal_marker": "A2a_dist",
+  "builds": {
+    "single": "build_fresh_pool.py",
+    "multipool": "build_multipool.py",
+    "sweep": "build_sweep.py"
+  },
+  "wf_scripts": ["wf_vs_v23.js", "wf_v23_multi.js"],
+  "verify": "v23_verify.py",
+  "judge": {"single": "v23_judge.py", "multipool": "v23_multi_judge.py"},
+  "report": "legacy",
+  "curve": "legacy_d1",
+  "_note": "기존 루트 스크립트를 가리키기만 한다 — 게이트C 계보 파일 무수정(SPEC §2·§6)."
+}

@@ -10,6 +10,12 @@ import sys
 
 from . import REPO_ROOT
 import harness_paths as H
+import survey_registry as SR
+
+
+def detect_survey(run_id):
+    """런의 설문 판별 → (survey_id, manifest) | (None, None). 라우팅은 레지스트리 소관."""
+    return SR.detect_run(os.path.join(H.RUNS_DIR, run_id))
 
 
 def run_env(run_id):

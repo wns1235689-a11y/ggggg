@@ -12,9 +12,18 @@ import uuid
 
 from . import REPO_ROOT
 import harness_paths as H
+import survey_registry as SR
 
-BUILD = {"single": "build_fresh_pool.py", "multipool": "build_multipool.py", "sweep": "build_sweep.py"}
-RUN_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js"}
+
+def BUILD():
+    """{kind: 빌드 스크립트} — 설문 레지스트리에서(gatec single/multipool/sweep + 신규 설문)."""
+    return SR.build_map()
+
+
+def RUN_SCRIPTS():
+    return SR.wf_scripts()
+
+
 POOL_PREFIXES = ("pool_", "multipool_", "sweep_")
 
 JOBS_DIR = os.path.join(H.RUNS_DIR, "_jobs")
@@ -41,16 +50,19 @@ def _pool_touch(d):
     return t
 
 
-def gen_pool(kind, seed=None, n=None):
-    if kind not in BUILD:
-        raise ValueError(f"kind는 {list(BUILD)} 중 하나 (받음: {kind})")
+def gen_pool(kind, seed=None, n=None, scenario=None):
+    builds = BUILD()
+    if kind not in builds:
+        raise ValueError(f"kind는 {list(builds)} 중 하나 (받음: {kind})")
     os.makedirs(SP_SCOPE, exist_ok=True)
     before = set(_pool_dirs())
-    cmd = [sys.executable, os.path.join(REPO_ROOT, BUILD[kind])]
+    cmd = [sys.executable, os.path.join(REPO_ROOT, builds[kind])]
     if seed is not None:
         cmd += ["--seed", str(seed)]
     if n is not None:
         cmd += ["--n", str(n)]
+    if scenario is not None:
+        cmd += ["--scenario", str(scenario)]
     env = dict(os.environ, HARNESS_RUNS=H.RUNS_DIR, HARNESS_SP=SP_SCOPE)
     p = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, env=env, timeout=180)
     if p.returncode != 0:
@@ -110,8 +122,8 @@ def _read_out_json(out_path):
 
 
 def start_run(script, pool_id, effort="medium", dry_run=False, n_limit=None, confirm_large=False):
-    if script not in RUN_SCRIPTS:
-        raise ValueError(f"script는 {sorted(RUN_SCRIPTS)} 중 하나")
+    if script not in RUN_SCRIPTS():
+        raise ValueError(f"script는 {sorted(RUN_SCRIPTS())} 중 하나")
     os.makedirs(JOBS_DIR, exist_ok=True)
     job_id = uuid.uuid4().hex[:12]
     out_path = os.path.join(JOBS_DIR, f"{job_id}.out")

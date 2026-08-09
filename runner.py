@@ -26,9 +26,10 @@ import time
 import uuid
 
 import harness_paths as H
+import survey_registry as SR
 
 REPO = os.path.dirname(os.path.abspath(__file__))
-ALLOWED_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js"}
+ALLOWED_SCRIPTS = SR.wf_scripts()   # 설문 레지스트리(manifest.wf_scripts 합집합)
 PER_PERSONA_TOKENS = 24000   # 관측 기반 대략치(medium 1.16M/49≈24k) — 예상 규모 표시용
 DRY_RUN_CAP = 2
 LARGE_N = 50
@@ -192,7 +193,8 @@ def main():
     if status == "completed":
         env = dict(os.environ, HARNESS_JOURNAL_BASE=jbase)
         params = json.dumps({"script": a.script, "pool_id": a.pool_id, "effort": a.effort,
-                             "dry_run": a.dry_run, "N": N, "session_id": sid}, ensure_ascii=False)
+                             "dry_run": a.dry_run, "N": N, "session_id": sid,
+                             "survey_id": SR.survey_for_wf(a.script)}, ensure_ascii=False)
         pr = subprocess.run([sys.executable, os.path.join(REPO, "persist_run.py"), run_id,
                              "--pool-dir", H.run_dir(a.pool_id), "--params", params],
                             cwd=REPO, capture_output=True, text=True, env=env)

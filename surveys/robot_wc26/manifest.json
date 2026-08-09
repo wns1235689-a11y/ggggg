@@ -1,0 +1,12 @@
+{
+  "survey_id": "robot_wc26",
+  "label": "월드컵 하프타임 로봇 인지 — 유럽 거리 설문 (2026-08 여정 사전등록)",
+  "journal_marker": "q2_verbatim",
+  "builds": {"robot_wc26": "surveys/robot_wc26/build_pool.py"},
+  "wf_scripts": ["surveys/robot_wc26/wf_robot.js"],
+  "verify": "surveys/robot_wc26/verify.py",
+  "judge": "surveys/robot_wc26/judge.py",
+  "report": "surveys/robot_wc26/report.py",
+  "curve": null,
+  "_note": "curve=null — 가격사다리 문항 없음. 노출·지식은 상류 주입(입력 전파) 설계."
+}
