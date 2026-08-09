@@ -1,7 +1,7 @@
 {"type": "result", "result": {"pid": 0, "Q1_dist": [5, 5], "q2_verbatim": ["don't know", "not sure", "no clue, sorry", "no clue, sorry", "no idea"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 6, 3]}}
 {"type": "result", "result": {"pid": 1, "Q1_dist": [6, 4], "q2_verbatim": ["Boston Dynamics obviously", "not sure", "no clue, sorry", "google I think", "Samsung maybe?", "is it Tesla"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [3, 0, 7]}}
 {"type": "result", "result": {"pid": 2, "Q1_dist": [9, 1], "q2_verbatim": ["the one with the parkour videos", "the robot dog company", "the one with the parkour videos", "the one with the parkour videos", "that robot dog company, the viral one", "no clue", "that robot dog company, the viral one", "the robot dog company", "that famous robot company from YouTube"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [2, 3, 5]}}
-{"type": "result", "result": {"pid": 3, "Q1_dist": [3, 7], "q2_verbatim": ["no clue, sorry", "is it Tesla", "Tesla? Elon's one?"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 2, 7]}}
+{"type": "result", "result": {"pid": 3, "Q1_dist": [3, 7], "q2_verbatim": ["is it Tesla", "that famous robot company from YouTube", "the robot dog company"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 2, 7]}}
 {"type": "result", "result": {"pid": 4, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [4, 3, 3]}}
 {"type": "result", "result": {"pid": 5, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [2, 2, 6]}}
 {"type": "result", "result": {"pid": 6, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 4, 5]}}
@@ -22,8 +22,8 @@
 {"type": "result", "result": {"pid": 21, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [3, 4, 3]}}
 {"type": "result", "result": {"pid": 22, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [5, 1, 4]}}
 {"type": "result", "result": {"pid": 23, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 5, 4]}}
-{"type": "result", "result": {"pid": 24, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [0, 6, 4]}}
-{"type": "result", "result": {"pid": 25, "Q1_dist": [5, 5], "q2_verbatim": ["no clue, sorry", "not sure", "is it Tesla", "no clue, sorry", "not sure"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [0, 5, 5]}}
+{"type": "result", "result": {"pid": 24, "Q1_dist": [3, 7], "q2_verbatim": ["the one with the parkour videos", "that famous robot company from YouTube", "Tesla? Elon's one?"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [0, 4, 6]}}
+{"type": "result", "result": {"pid": 25, "Q1_dist": [5, 5], "q2_verbatim": ["that robot dog company, the viral one", "is it Tesla", "that famous robot company from YouTube", "that robot dog company, the viral one", "some American company?"], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [0, 5, 5]}}
 {"type": "result", "result": {"pid": 26, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [3, 2, 5]}}
 {"type": "result", "result": {"pid": 27, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [0, 6, 4]}}
 {"type": "result", "result": {"pid": 28, "Q1_dist": [0, 10], "q2_verbatim": [], "probeA_verbatim": [], "probeB_verbatim": [], "Q3_dist": [1, 4, 5]}}

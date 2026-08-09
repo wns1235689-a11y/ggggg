@@ -87,6 +87,9 @@ def _judge_section(j):
             res = f"n=150 투영 분기A ≈{h['projected_branchA_at_n150']}회"
         elif hid == "H8":
             res = f"E: <30 {h['excited']['<30']} vs 50+ {h['excited']['50+']} / W: {h['worried']['<30']} vs {h['worried']['50+']}"
+        elif hid == "H9":
+            res = (f"혼동층 {h['conflated_personas']}명, Y기여 {h['conflated_y_people']}명"
+                   f"({h['conflated_y_share_of_all_y']}), 코딩 {h['conflated_coded']}")
         else:
             res = "—"
         L.append(f"| {hid} | {res} | {h['verdict']} |")
@@ -108,7 +111,9 @@ def _field_protocol():
 2. **L-주장률**이 시뮬 tv_live 상단을 크게 넘으면: 사전등록 규칙에 따라 '기억 재구성(클립→생중계 오귀속)' 후보로 해석.
 3. 분기A 실발동 수를 H7 투영과 대조 — 15회 미만이면 프로브 결과는 일화로만 기술.
 4. 국가별 Q1은 표본이 작으므로(도시당 ≤15) BE/DE/NL 서열 방향만 대조, %p 차이는 해석 금지.
-5. 어긋난 밴드는 실패가 아니라 발견 — config 밴드·근거 등급과 함께 그대로 기록."""
+5. **혼동 분리(H9)**: verbatim에 'dog/robot dog/순찰' 계열 발화가 있으면 Spot·Unitree 혼동 후보로
+   태그 — Atlas 공연 인지와 합산하지 말 것(EU 로봇개 보도 실재·멕시코 Unitree는 현대와 무관).
+6. 어긋난 밴드는 실패가 아니라 발견 — config 밴드·근거 등급과 함께 그대로 기록."""
 
 
 def run(run_id):

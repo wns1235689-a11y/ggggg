@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
-"""로봇 미니 설문(월드컵 하프타임 Atlas) 시뮬 — 설정 v1.0
+"""로봇 미니 설문(월드컵 하프타임 Atlas) 시뮬 — 설정 v1.1
 =============================================================
+v1.1(2026-08-09): 감사3(새 경로 1–7) 반영 — tv_live 하향(부정증거 4건 누적), 스폰서
+  추론 경로 실측 앵커(SPONSOR_ANCHORS)·상단 상향, 혼동층의 '우연 정답' 경로 신설
+  (CONFLATED_KNOW_W), UK 밴드 상향(잉글랜드 3위), FAINT_SHARE 상향(바이럴 소규모),
+  Kia 코딩 추가.
 모든 수치는 아래 딱지 중 하나를 단다(게이트C 규율 계승):
   [실측]   조사 감사 기록(2026-08-08/09)에서 확인된 공식 통계·영상·조사값
   [근사]   문항·모집단·노출조건이 다른 대리값으로 상·하한을 정한 값
@@ -31,7 +35,9 @@ EVENT = {
     "activation": "Hyundai 공식 Robotics Partner 하프타임 활성화(단일 공연 — 결승 재공연 없음)",
     "branding": "Atlas 가슴 Hyundai H + Boston Dynamics 워드마크; FIFA 공식 쇼츠 배경 HYUNDAI",
     "stadium_attendance": 80633,
-    "broadcast_halftime_shown": "불명 — Guardian MBM·r/soccer 스레드 무언급(약한 부정)·다시보기 접근 불가",
+    "broadcast_halftime_shown": ("불명 — 약한 부정 증거 4건 누적: Guardian MBM·r/soccer 경기스레드·"
+                                 "ge.globo 194이벤트·VG Live 전문(노르웨이 시청자 댓글 포함 33,526자) 전부 무언급. "
+                                 "NRK 2h17 전체 다시보기 존재[실측]·노르웨이 밖 재생 차단 → 수동 확인이 A를 닫을 최유망 경로"),
     "spot_program": "Spot 4대 시설 순찰(Dallas IBC 2·NYNJ 2) — 하프타임과 별개 노출층",
     "post_campaign": "The Training Ground 유튜브 16M+ 글로벌 [실측]; 국가별 도달 [스윕]",
     "winner": "스페인(결승 7/19 아르헨티나 1–0)",
@@ -65,7 +71,7 @@ Q1_BANDS = {
     "BE": (0.28, 0.40, 0.52),   # 자국 생존(익일 16강전)·VRT 실측 → 3국 중 최상 [스윕/실측방향]
     "DE": (0.16, 0.27, 0.38),   # 6/29 탈락 + 유료TV 독점(무료 생중계 없음 [실측]) — 단 6.9M
     "NL": (0.12, 0.22, 0.33),   # 6/29 탈락 + 시청률 미확인 → 3국 중 최하
-    "UK": (0.22, 0.33, 0.45),   # ITV 5.4M avg [실측]
+    "UK": (0.24, 0.35, 0.47),   # ITV 5.4M avg [실측] + 잉글랜드 최종 3위(1966 후 최고) → 대회 관심 지속 [실측]
     "FR": (0.25, 0.36, 0.48),   # M6 40.6% 점유·15-34 71% [실측]
     "AT": (0.24, 0.34, 0.46),   # ORF 점유 46% [실측]
     "ES": (0.22, 0.34, 0.46),   # 우승국 — 대회 전반 관심 상향 [근사]
@@ -74,16 +80,25 @@ Q1_BANDS = {
 }
 AGE_EXPOSURE_MULT = {"<30": 1.25, "30-50": 1.00, "50+": 0.70}   # [근사: FR 젊은층 점유 71%·SNS 클립]
 EXPOSURE_P_CAP = 0.92
-FAINT_SHARE = 0.35               # 노출자 중 '희미(스치듯)' 비중 [운영] — Q1 저문턱(애매→Y) 반영
+# 노출자 중 '희미(스치듯)' 비중 [근사↑0.35→0.40]: 로봇 커뮤니티 실반응 소규모·'심심했다'
+# (r/robotics +585·r/singularity 26점/19댓글) + 유기 클립 ~1.5M → 기억 부호화 약함 예상
+FAINT_SHARE = 0.40
 
-# 노출 경로 가중(노출자 조건부). tv_live는 시나리오 스윕(0 포함 — 감사2 §A '불명').
-CHANNEL_TV_LIVE = (0.00, 0.04, 0.10)          # [스윕·0포함] 월드피드 송출 자체가 불명
+# 노출 경로 가중(노출자 조건부). tv_live는 시나리오 스윕(0 포함 — 감사2·3 §A '불명').
+# [스윕·0포함] mid 0.04→0.03 하향: 독립 편집·실시간 소스 4건(Guardian·r/soccer·ge·VG) 전부
+# 무언급 — 미송출 확정은 아니나 사전분포를 낮출 근거로는 충분 [근사]
+CHANNEL_TV_LIVE = (0.00, 0.03, 0.08)
 CHANNEL_BASE_W = {"clip": 0.44, "news": 0.30, "wom": 0.26}   # tv 제외 잔여 가중 [근사]
 NEWS_W_MULT = {"DE": 0.70, "NL": 0.70}        # 주류매체 독립보도 미확인 [감사1 §4.5 — 근사]
 CLIP_OFFICIAL_SHARE = (0.35, 0.50, 0.65)      # 클립 중 공식(브랜딩 보존) 비중 [스윕 — Training Ground 16M 글로벌]
 
-# 비노출자의 오탐(혼동) — Spot 순찰·로봇 뉴스와의 혼합 기억 [스윕]
+# 비노출자의 오탐(혼동) — Spot 순찰·로봇개 뉴스와의 혼합 기억
+# [스윕·존재는 실측(감사3 §8)]: 독일어권·네덜란드어권 Spot 기사 5건 확인 + 멕시코 Unitree
+# K9-X 기사 별개 존재 → 오탐 경로 실재. 크기는 미공개라 밴드 유지.
 CONFLATED_FALSE_Y = (0.01, 0.03, 0.06)
+# 혼동층의 지식 분포 [근사]: EU Spot 기사 다수가 Hyundai/BD를 명시 → 혼동 기억이 '우연히
+# 정답(현대)'을 만드는 경로 실재. Unitree 기사(비귀속)·무귀속 기억은 none/desc로.
+CONFLATED_KNOW_W = {"none": 0.40, "desc_only": 0.40, "hyundai_only": 0.20}
 
 # ─────────────────────────────────────────────────────────────────────────
 # 3. 지식 모형 — 노출자 조건부 제조사 지식 [근사/스윕]
@@ -105,8 +120,20 @@ P_HYUNDAI_CH = {
     "clip_cropped":  (0.01, 0.03, 0.05),   # 리업로드서 현대 탈락 [실측방향]
     "wom":           (0.02, 0.04, 0.07),
 }
-# 스폰서 추론 경로(노출 무관 가산): "월드컵이니 현대겠지" [근사 — YouGov AIS 사전 연상, 감사2 §H.3]
-P_SPONSOR_INFER = (0.02, 0.04, 0.07)
+# 스폰서 추론 경로(노출 무관 가산): "월드컵이니 현대겠지"
+# [근사 — 상단 0.07→0.09 상향·실측 앵커 확보(감사3 §6)]: '현대–월드컵 연결'은 서구권 12~22%
+# 실측이 존재하고, 비스폰서 Nike가 32%로 회상되는 '유명브랜드 오귀속' 노이즈도 실측됨 —
+# 추론·오귀속 경로가 실재한다는 직접 증거. 단 이 값들은 '연결 인지'이지 Atlas 귀속률이 아님.
+P_SPONSOR_INFER = (0.02, 0.05, 0.09)
+SPONSOR_ANCHORS = {   # [실측] — 직접 대입 금지, P_SPONSOR_INFER 밴드의 근거로만(감사3 §6.1 문항 구분)
+    "hyundai_wc_link_us_general": 0.12,        # Morning Consult+Bloomberg, 미국 성인 n=2,004 (5월)
+    "hyundai_wc_link_likely_followers": 0.20,  # YouGov 19시장 likely followers (3~4월, n 미공개)
+    "hyundai_major_sponsor_aided": {"CA": 0.17, "US": 0.22, "MX_host": 0.44},  # Léger (3월)
+    "sponsor_aware_any_us": 0.41,              # Spectrum n=999; 그중 Hyundai-Kia 26%(n=413, 결합값)
+    "misattribution_evidence": "비스폰서 Nike 32%·Mastercard 29%·Pepsi 26%가 스폰서로 회상(YouGov)",
+    "kia_note": "Kia 스폰서 인지 15~24% — Q2 오답 후보로 'Kia' 실재 가능(코딩 W-KIA)",
+    "note": "전부 대회 '전' 조사·유럽 조사국(NL/BE) 미포함 — 연결 인지≠공연 귀속",
+}
 # BD를 이름으로 못 대는 노출자 중 '서술만 가능'("그 로봇개 회사") [근사 — CrowdReact 24% 서술가능]
 P_DESC_ONLY = (0.10, 0.17, 0.24)
 
@@ -149,6 +176,7 @@ COMPANY_PATTERNS = [
     ("GOOGLE", ["google", "alphabet"]),
     ("SOFTBANK", ["softbank", "soft bank"]),
     ("GENESIS", ["genesis"]),
+    ("KIA", ["kia"]),   # 감사3: Kia 스폰서 인지 15~24% — 형제 브랜드 오답 후보(정답 아님)
     ("SAMSUNG", ["samsung"]), ("HONDA", ["honda", "asimo"]), ("SONY", ["sony"]),
     ("XIAOMI", ["xiaomi"]), ("OPENAI", ["openai"]), ("AMAZON", ["amazon"]),
     ("APPLE", ["apple"]), ("FIGURE", ["figure"]), ("UNITREE", ["unitree"]),
@@ -166,8 +194,8 @@ DK_KEYS = ["no idea", "don't know", "dont know", "no clue", "not sure", "couldn'
 PREREG = [
     {"id": "H1", "claim": "Q1=Y층의 Q2 최다 카테고리는 DK(모름)", "band": (0.40, 0.60),
      "basis": "[근사] BD 비보조 상기 낮음 + 7주 감쇠 + CrowdReact 구조"},
-    {"id": "H2", "claim": "특정 기업 오답 1위는 Tesla", "band": None,
-     "basis": "[근사] Optimus 2025-26 반복 노출(가용성 휴리스틱) — 실측 혼동률 없음"},
+    {"id": "H2", "claim": "특정 기업 오답 1위는 Tesla (W-KIA 등 유명·형제 브랜드 오답도 등장)", "band": None,
+     "basis": "[근사] Optimus 반복 노출(가용성 휴리스틱) + 유명브랜드 오귀속 실측(비스폰서 Nike 32% 회상)"},
     {"id": "H3", "claim": "BD 명명(A2+A3) ≥ 현대 명명(A1+A3)의 약 2배", "band": (1.5, 6.0),
      "basis": "[근사] 리업로드 BD 잔존·현대 탈락 + 소유인지 조사 부재"},
     {"id": "H4", "claim": "분기A(BD 명명자 소유주 프로브)의 현대 정답 15~30% + Google/SoftBank 낡은답 존재",
@@ -180,6 +208,9 @@ PREREG = [
      "basis": "Y율×BD명명률 곱의 규모 — 분기A 데이터는 일화 수준 예상"},
     {"id": "H8", "claim": "Q3 연령 경사: <30 E↑ / 50+ W↑", "band": None,
      "basis": "[실측방향] Pew·SP554 연령 경사"},
+    {"id": "H9", "claim": "현장 Y응답 일부는 Spot/로봇개 뉴스와의 혼동 — verbatim의 'dog' 계열 발화가 식별 마커",
+     "band": None,
+     "basis": "[실측·존재] EU Spot 기사 5건(현대/BD 명시) + 멕시코 Unitree 별개 보도 — 크기는 [스윕]"},
 ]
 
 FIELD_PLAN = {"n_min": 60, "n_target": 150, "per_city_cap": 15, "branchA_warn_min": 15}

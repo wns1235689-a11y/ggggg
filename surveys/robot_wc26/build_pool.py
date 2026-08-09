@@ -116,7 +116,10 @@ def sample_persona(pid):
         elif rng.random() < C.band(C.P_DESC_ONLY, SCEN):
             know = "desc_only"
     elif conflated:
-        know = "desc_only" if rng.random() < 0.5 else "none"   # 혼동 기억층 [운영]
+        # 혼동층 지식 [근사·감사3 §8]: EU Spot 기사 다수가 현대/BD 명시 → '우연 정답' 경로 포함
+        kk = list(C.CONFLATED_KNOW_W)
+        kw = np.array([C.CONFLATED_KNOW_W[k] for k in kk])
+        know = kk[int(rng.choice(len(kk), p=kw / kw.sum()))]
 
     # Q3 성향(국가 앵커 + 연령 오프셋 + 개인 노이즈) — 성향 라벨만 프롬프트에 주입
     e, w_, m = C.Q3_CENTERS.get(res, C.Q3_CENTERS["_default"])

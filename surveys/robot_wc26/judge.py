@@ -139,6 +139,22 @@ def run(run_id):
     h8 = {"id": "H8", "excited": {"<30": e_y, "50+": e_o}, "worried": {"<30": w_y, "50+": w_o},
           "verdict": "경사 재현(지지)" if grad_ok else "경사 미재현"}
 
+    # H9 혼동(Spot/로봇개) 기여 — 입력 전파 확인 + 코딩 마커
+    confl_pids = {p for p, m in meta.items() if m.get("conflated")}
+    confl_y = sum(rows[p]["Q1_dist"][0] for p in confl_pids if p in rows)
+    confl_codes = Counter()
+    for p in confl_pids:
+        if p in rows:
+            for v in rows[p]["q2_verbatim"]:
+                confl_codes[coding.code_q2(v)] += 1
+    h9 = {"id": "H9", "conflated_personas": len(confl_pids),
+          "conflated_y_people": confl_y,
+          "conflated_y_share_of_all_y": round(confl_y / n_y, 3) if n_y else None,
+          "conflated_coded": dict(confl_codes),
+          "note": "혼동층 존재는 입력 전파(존재 자체는 실측 — EU Spot 기사). 현장 식별 마커 = 'dog' 계열 verbatim",
+          "verdict": ("혼동층이 A1(우연 정답)에 기여함 — 현장 코딩 시 dog-마커 분리 필요"
+                      if confl_codes.get("A1", 0) > 0 else "혼동층 정답 기여 없음(이번 표집)")}
+
     # 국가별 Q3 vs 앵커(참고 — 부분 순환: 성향 주입됨)
     q3_ctry = {}
     for pid, r in rows.items():
@@ -159,7 +175,7 @@ def run(run_id):
         "run_id": run_id, "N": N, "scenario": scen, "seed": cfg.get("RUN_SEED"),
         "judgeable": True,
         "q2_coded_total": dict(q2), "n_y_people": n_y, "total_sim_people": total_sim_people,
-        "hypotheses": [h1, h2, h3, h4, h5, h6, h7, h8],
+        "hypotheses": [h1, h2, h3, h4, h5, h6, h7, h8, h9],
         "q3_vs_anchor": q3_vs_anchor,
         "caveats": [
             "Q1 수준·채널믹스·국가서열은 config 스윕 밴드의 입력 전파 — 사전등록 예측이지 발견 아님.",
