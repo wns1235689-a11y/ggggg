@@ -1,0 +1,14 @@
+{
+ "run_id": "wf_mockgenesis_8888001",
+ "journal_file": "journal.jsonl",
+ "mock": true,
+ "params": {
+  "survey_id": "genesis_eu26",
+  "script": "surveys/genesis_eu26/wf_genesis.js",
+  "pool_id": "pool_genesis_8888001",
+  "effort": "mock",
+  "dry_run": true,
+  "N": 65,
+  "note": "MOCK — 파이프라인 검증 전용, 예측 인용 금지"
+ }
+}

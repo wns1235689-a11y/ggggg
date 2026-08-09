@@ -1,0 +1,12 @@
+{
+  "survey_id": "genesis_eu26",
+  "label": "제네시스 유럽 인지 — 로테르담 거리(GP前) + 잔드보르트 GP 팬존 (2026-08 사전등록)",
+  "journal_marker": "q1_lists",
+  "builds": {"genesis_eu26": "surveys/genesis_eu26/build_pool.py"},
+  "wf_scripts": ["surveys/genesis_eu26/wf_genesis.js"],
+  "verify": "surveys/genesis_eu26/verify.py",
+  "judge": "surveys/genesis_eu26/judge.py",
+  "report": "surveys/genesis_eu26/report.py",
+  "curve": null,
+  "_note": "2모집단 한 풀(격차 판정용). 브랜드 인지 상태 상류 주입(입력 전파). 마그마는 GP 전용."
+}
