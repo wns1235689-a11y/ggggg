@@ -68,7 +68,7 @@ def make_temp_wf(script, personas):
     return path
 
 
-def launch(temp_wf, sid, orig_script, log):
+def launch(temp_wf, sid, orig_script, log, timeout_s=300):
     """claude -p로 Workflow 실행(격리 세션 sid). root에서 막히는 skip-permissions 대신
     --permission-mode dontAsk. 반환은 (rc, 출력) — run_id는 저널 디렉토리에서 발견.
 
@@ -88,8 +88,10 @@ def launch(temp_wf, sid, orig_script, log):
            "--output-format", "json", "--permission-mode", "dontAsk",
            "--allowedTools", "Read,Workflow"]
     log.append(f"[launch] claude -p --session-id {sid} --permission-mode dontAsk --allowedTools Read,Workflow ...")
+    # 주의: nested claude는 워크플로가 끝날 때까지 살아있다 — timeout이 워크플로 수명보다
+    # 짧으면 진행 중인 런을 통째로 죽인다(2단위 콤보1·2 사후: 300초 킬로 57/110·48/110 유실).
     try:
-        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=300)
+        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired as e:
         return -1, f"[launch timeout] {e}"
     return proc.returncode, (proc.stdout or "") + "\n" + (proc.stderr or "")
@@ -193,7 +195,8 @@ def main():
     jbase = nested_journal_base(sid)
     log.append(f"[wf] 임시 베이크 wf={temp_wf}, session_id={sid}")
 
-    rc, out = launch(temp_wf, sid, a.script, log)
+    timeout = a.timeout if a.timeout else (300 if a.dry_run else 3600)
+    rc, out = launch(temp_wf, sid, a.script, log, timeout_s=timeout)
     run_id = discover_run_id(jbase, out, 30, log)
     log.append(f"[launch] rc={rc}, run_id={run_id}")
     if not run_id:
@@ -202,9 +205,10 @@ def main():
               "log": log + ["[ERROR] run_id 발견 실패(저널 디렉토리·stdout 모두). 서브프로세스 출력 일부:", out[:2000]]})
         return
 
-    timeout = a.timeout if a.timeout else (300 if a.dry_run else 3600)
     jbase = reanchor_jbase(jbase, run_id, log)
-    status, jpath, got = poll_journal(jbase, run_id, N, timeout, log)
+    # launch가 워크플로 종료까지 블로킹하므로 poll은 회수 확인용 짧은 창이면 충분
+    # (launch 킬/부분 실패 시 죽은 저널을 장시간 폴링하는 이중 대기 방지)
+    status, jpath, got = poll_journal(jbase, run_id, N, 120, log)
 
     # 부분 완주 영속화(B안 운영): 에이전트 일부 실패로 timeout돼도 90%+ 회수면 증거 보존
     if status == "timeout" and got >= max(1, int(0.9 * N)):

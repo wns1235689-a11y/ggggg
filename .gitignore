@@ -10,3 +10,4 @@ runs/_tmp_runs/
 
 # 2단위 드라이버 런타임 로그(비커밋)
 runs/_unit2_log*
+runs/_unit2b_log*
