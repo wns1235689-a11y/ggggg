@@ -1,0 +1,68 @@
+{
+ "label": "0810",
+ "sealed_at_utc": "2026-08-10T05:33:11.727230+00:00",
+ "git_head_at_seal": "bcb41e6130997930257623810a290bcf987a54f9",
+ "runs": [
+  {
+   "run_id": "wf_a1de757f-5ec",
+   "survey_id": "robot_wc26",
+   "scenario": "conservative",
+   "seed": 61000101,
+   "N": 110,
+   "config_sha256_16": "4f55e8ebde0d4038",
+   "wf_sha256_16": "bd677b1e4178b7ed",
+   "git_head": "e3c0ea5"
+  },
+  {
+   "run_id": "wf_998ee0ee-85b",
+   "survey_id": "robot_wc26",
+   "scenario": "neutral",
+   "seed": 61000102,
+   "N": 110,
+   "config_sha256_16": "4f55e8ebde0d4038",
+   "wf_sha256_16": "bd677b1e4178b7ed",
+   "git_head": "2e88d06"
+  },
+  {
+   "run_id": "wf_a145ac6f-056",
+   "survey_id": "robot_wc26",
+   "scenario": "optimistic",
+   "seed": 61000110,
+   "N": 110,
+   "config_sha256_16": "4f55e8ebde0d4038",
+   "wf_sha256_16": "bd677b1e4178b7ed",
+   "git_head": "dc27730"
+  },
+  {
+   "run_id": "wf_38f993b8-879",
+   "survey_id": "genesis_eu26",
+   "scenario": "conservative",
+   "seed": 62000101,
+   "N": 65,
+   "config_sha256_16": "ec41c8d7bb053d6c",
+   "wf_sha256_16": "64a15809c3da99d2",
+   "git_head": "dc27730"
+  },
+  {
+   "run_id": "wf_4e446ed1-857",
+   "survey_id": "genesis_eu26",
+   "scenario": "neutral",
+   "seed": 62000102,
+   "N": 65,
+   "config_sha256_16": "ec41c8d7bb053d6c",
+   "wf_sha256_16": "64a15809c3da99d2",
+   "git_head": "dc27730"
+  },
+  {
+   "run_id": "wf_647a550a-195",
+   "survey_id": "genesis_eu26",
+   "scenario": "optimistic",
+   "seed": 62000103,
+   "N": 65,
+   "config_sha256_16": "ec41c8d7bb053d6c",
+   "wf_sha256_16": "64a15809c3da99d2",
+   "git_head": "dc27730"
+  }
+ ],
+ "note": "봉인 = 이 파일이 커밋·태그된 시점의 리포트들. 이후 config 수정은 새 봉인으로만."
+}
