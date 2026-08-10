@@ -1,0 +1,21 @@
+{
+ "run_id": "wf_a145ac6f-056",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.055,
+ "gzipped": false,
+ "pool_source": "runs/pool_robot_61000110",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "surveys/robot_wc26/wf_robot.js",
+  "pool_id": "pool_robot_61000110",
+  "effort": "medium",
+  "dry_run": false,
+  "N": 110,
+  "survey_id": "robot_wc26",
+  "status_note": "completed_partial 96/110 — 에이전트 14명 일시 실패, 방향성 판독용 수동 회수"
+ }
+}

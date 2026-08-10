@@ -1,0 +1,21 @@
+{
+ "run_id": "wf_998ee0ee-85b",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.05,
+ "gzipped": false,
+ "pool_source": "runs/pool_robot_61000102",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "surveys/robot_wc26/wf_robot.js",
+  "pool_id": "pool_robot_61000102",
+  "effort": "medium",
+  "dry_run": false,
+  "N": 110,
+  "survey_id": "robot_wc26",
+  "status_note": "completed_partial 102/110 — 컨테이너 유휴회수로 절단, 90% 기준 충족 수동 회수"
+ }
+}

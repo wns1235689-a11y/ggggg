@@ -94,13 +94,18 @@ def run(run_id):
     vague_y_mean = round(sum(vague_y_shares) / len(vague_y_shares), 3) if vague_y_shares else None
 
     # ⑥ 마그마 상태 에코·깊이 누출(P2-05)
+    # 실 LLM 관측(2단위): 비인지자의 Y=1 묵종이 균일하게 발생(유도형 질문의 유기적 바닥) —
+    # Y≤1은 acquiescence_floor로 별도 집계하고 Y>1만 에코 위반으로 판정
     magma_echo, magma_depth_leak = [], []
+    magma_acq_floor = 0
     for pid, r in rows.items():
         m = meta.get(pid)
         if not m or m["pop"] != "gp_zandvoort":
             continue
-        if not m["magma"] and r["magma_dist"][0] > 0:
-            magma_echo.append({"pid": pid, "why": f"마그마 상태 False인데 Y={r['magma_dist'][0]}"})
+        if not m["magma"] and r["magma_dist"][0] == 1:
+            magma_acq_floor += 1
+        elif not m["magma"] and r["magma_dist"][0] > 1:
+            magma_echo.append({"pid": pid, "why": f"마그마 상태 False인데 Y={r['magma_dist'][0]}(>1)"})
         if m.get("magma_depth") == "vague":
             for v in r["magma_verbatim"]:
                 if coding.magma_depth(v) == "specific":
@@ -171,7 +176,9 @@ def run(run_id):
                   "realized_y_share_mean": vague_y_mean,
                   "note": "관측공간 역산의 E[Y|vague] 실측치(가정 0.5 검증용)"},
         "magma_state": {"echo_violations": len(magma_echo), "cases": magma_echo[:10],
-                        "depth_leaks": len(magma_depth_leak)},
+                        "acquiescence_floor_persons": magma_acq_floor,
+                        "depth_leaks": len(magma_depth_leak),
+                        "note": "acq_floor=비인지자의 Y=1(유기적 묵종 — GH4 상한 해석에 포함)"},
         "pool_drift": {"cells_over_2z": drift,
                        "note": "실현 knows율 vs 기대 p̄ — 봉인은 3시드 세트 권장(P2-08)"},
         "collapse": {"q1_distinct_ratio": distinct_ratio, "q1_modal_share_pct": modal_share,

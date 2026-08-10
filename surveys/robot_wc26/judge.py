@@ -50,15 +50,36 @@ def run(run_id):
     if N == 0:
         return {"run_id": run_id, "N": 0, "judgeable": False, "note": "결과 없음(진행 중)"}
 
-    # ── 코딩 집계(가상 응답자 단위 = verbatim 1개) ──
+    # ── 코딩 집계(가상 응답자 단위 = verbatim 1개) + 누출 플래그(민감도용) ──
+    # 실 LLM 누출 바닥 ~5% 관측(2단위) → 원값과 누출-제외 민감도를 이중 산출(사전등록 처리 규칙)
+    HY_KEYS = dict(C.COMPANY_PATTERNS)["HYUNDAI"]
+    BD_KEYS = dict(C.COMPANY_PATTERNS)["BOSTON"]
+
+    def _is_leak(know, v):
+        if know in ("none", "desc_only"):
+            return coding._hit(v, HY_KEYS + BD_KEYS)
+        if know == "bd_only":
+            return coding._hit(v, HY_KEYS)
+        if know == "hyundai_only":
+            return coding._hit(v, BD_KEYS)
+        return False
+
     q2 = Counter()
+    q2_sens = Counter()          # 누출 verbatim 제외 집계
+    n_leaked = 0
     q2_by_channel = {}
     for pid, r in rows.items():
-        ch = (meta.get(pid) or {}).get("channel") or "none"
+        m0 = meta.get(pid) or {}
+        ch = m0.get("channel") or "none"
+        know0 = m0.get("knowledge")
         for v in r["q2_verbatim"]:
             c = coding.code_q2(v)
             q2[c] += 1
             q2_by_channel.setdefault(ch, Counter())[c] += 1
+            if _is_leak(know0, v):
+                n_leaked += 1
+            else:
+                q2_sens[c] += 1
     n_y = sum(q2.values())
     total_sim_people = sum(sum(r["Q1_dist"]) for r in rows.values())   # F1: 합 하드코딩 제거
 
@@ -96,11 +117,14 @@ def run(run_id):
             return "판정 유보(표본 없음)"
         return "자기일관(밴드 내)" if band[0] <= v <= band[1] else \
             ("기제 이상(밴드 위)" if v > band[1] else "기제 이상(밴드 아래)")
+    n_y_sens = sum(q2_sens.values())
+    dk_desc_sens = round(sum(q2_sens.get(c, 0) for c in ("DK", "DESC")) / n_y_sens, 3) if n_y_sens else None
     h1 = {"id": "H1", "dk_plus_desc": dk_desc, "dk_strict": dk_strict,
           "band_dk_plus_desc": h1p.get("band"), "band_dk_strict": h1p.get("band_strict"),
           "skeleton_none_share": skel["none_share"],
+          "sensitivity_leak_excluded": {"dk_plus_desc": dk_desc_sens, "n_leaked_excluded": n_leaked},
           "verdict": f"DK+DESC {_band_verdict(dk_desc, h1p['band'])} / strict {_band_verdict(dk_strict, h1p['band_strict'])}",
-          "note": "현장 대조는 같은 정의끼리만(§6 밤코딩=strict, 부록 재코딩=DK+DESC)"}
+          "note": "현장 대조는 같은 정의끼리만(§6 밤코딩=strict, 부록 재코딩=DK+DESC). 민감도=누출 verbatim 제외"}
 
     # H2 특정 기업 오답 1위 (LLM 계층)
     wrongs = {k: v for k, v in q2.items() if k.startswith("W-")}
@@ -116,9 +140,13 @@ def run(run_id):
     bd_n = (q2.get("A2", 0) - promo_a) + a3_adj
     hy_n = (q2.get("A1", 0) - promo_b) + a3_adj
     ratio = round(bd_n / hy_n, 2) if hy_n else None
+    bd_s = q2_sens.get("A2", 0) + q2_sens.get("A3", 0)
+    hy_s = q2_sens.get("A1", 0) + q2_sens.get("A3", 0)
+    ratio_sens = round(bd_s / hy_s, 2) if hy_s else None
     h3 = {"id": "H3", "bd_named": bd_n, "hyundai_named": hy_n, "ratio": ratio,
           "band": h3p.get("band"), "promoted": {"A2→A3": promo_a, "A1→A3": promo_b},
           "skeleton_ratio": skel["H3_skeleton_ratio"],
+          "sensitivity_leak_excluded": {"ratio": ratio_sens, "bd": bd_s, "hy": hy_s},
           "verdict": ("판정 유보(분모<최소)" if hy_n < h3p.get("min_denom", 0)
                       else "현대 명명 0(비 미정의·방향 자기일관)" if hy_n == 0 and bd_n > 0
                       else _band_verdict(ratio, h3p["band"]) if ratio is not None else "판정 유보")}

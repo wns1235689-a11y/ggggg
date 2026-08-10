@@ -5,13 +5,35 @@ set -u
 cd "$(dirname "$0")/.."
 export HARNESS_RUNS=$PWD/runs
 LOG=runs/_unit2b_log.jsonl
-: > "$LOG"
+touch "$LOG"     # 재개형: 로그를 비우지 않고 이어쓴다
 ZERO_STREAK=0
+
+combo_done() {  # 이미 영속화된 완주 런이 있으면 0 반환(스킵 판단)
+  python3 - "$1" <<'PYEOF'
+import json, os, sys
+pool = sys.argv[1]
+for rid in os.listdir("runs"):
+    p = os.path.join("runs", rid, "params.json")
+    if not (rid.startswith("wf_") and os.path.exists(p)):
+        continue
+    try:
+        d = json.load(open(p))
+    except Exception:
+        continue
+    if (d.get("params") or {}).get("pool_id") == pool and os.path.exists(os.path.join("runs", rid, "journal.jsonl")):
+        sys.exit(0)
+sys.exit(1)
+PYEOF
+}
 
 run_combo() {
   local survey=$1 scen=$2 seed=$3 build_args=$4 wf=$5 prefix=$6
   local attempt pool_id
   pool_id="${prefix}_${seed}"
+  if combo_done "$pool_id"; then
+    echo "{\"event\":\"skip_done\",\"pool\":\"$pool_id\"}" >> "$LOG"
+    return
+  fi
   if [ -d "runs/$pool_id" ]; then
     echo "{\"event\":\"pool_reuse\",\"pool\":\"$pool_id\"}" >> "$LOG"
   else

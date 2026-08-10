@@ -119,7 +119,8 @@ def run(run_id):
     if leak_rate > LEAK_WARN_PCT:
         warnings.append({"code": "knowledge_leak", "value_pct": leak_rate,
                          "message": f"무지식층 정답 발화 {leak_rate}% (> {LEAK_WARN_PCT}%) — 시뮬 타당성 훼손",
-                         "prescription": "프롬프트의 지식상태 사실 규정 강화 또는 해당 런 격하(판정 인용 금지)"})
+                         "prescription": "judge의 누출-제외 민감도(sensitivity_leak_excluded)와 병기 해석 — "
+                                         "실 LLM 누출 바닥 ~5% 관측(2단위): 균일 바닥이면 격하 대신 이중 보고"})
     if echo_rate > ECHO_WARN_PCT:
         warnings.append({"code": "echo_violation", "value_pct": echo_rate,
                          "message": f"노출상태↔Q1 에코 위반 {echo_rate}% (> {ECHO_WARN_PCT}%)",
