@@ -60,7 +60,9 @@ def make_temp_wf(script, personas):
         raise SystemExit(f"[runner] {script}: args 주입 패턴 없음(P0-7 필요)")
     baked = "const personas = " + json.dumps(personas, ensure_ascii=False)
     src2 = src.replace(ARGS_PATTERN, baked, 1)
-    tmpdir = os.path.join("/tmp", "harness_runner")
+    # 리포 안(gitignore된 runs/_tmp_runs/)에 둔다: 중첩 세션의 Workflow 도구가 /tmp 등 작업 디렉토리 밖의
+    # scriptPath를 거부하는 경우가 있다(N=50 실행에서 관측).
+    tmpdir = os.path.join(H.RUNS_DIR, "_tmp_runs")
     os.makedirs(tmpdir, exist_ok=True)
     path = os.path.join(tmpdir, f"wfrun_{uuid.uuid4().hex[:8]}_{script}")
     open(path, "w", encoding="utf-8").write(src2)
