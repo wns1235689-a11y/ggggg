@@ -46,9 +46,11 @@ THRESH = {
     "④_floor_yes_499": 0.90,        # $4.99 Yes ≥ 90% → 바닥이 너무 낮음(사다리 위로)
     "④_ceiling_yes_799": 0.10,      # $7.99 Yes ≤ 10% → 천장이 너무 높음(사다리 아래로)
 }
-CONCEPT = ("A single-serving frozen pad thai you heat in the microwave for 5 minutes. Instead of tamarind, "
+CONCEPT = ("A single-serving frozen pad thai you heat in the microwave for 5 minutes. Instead of tamarind "
+           "(the sour fruit paste normally used in pad thai), "
            "the sauce uses Korean green plum syrup (maesil), and there is no cilantro, so the flavor is milder "
            "and easier for people who find Thai dishes too strong, or who are trying pad thai for the first time.")
+# v1.1(괄호 풀이 전) 문장과 내용어가 거의 같으므로 에코 진단은 두 버전에 공통으로 쓴다.
 TERMS = {
     "maesil": r"\bmaesil\b", "green plum syrup": r"plum\s*syrup|green\s*plum", "tamarind": r"\btamarind\b",
     "cilantro": r"\bcilantro\b", "pad thai": r"\bpad\s*thai\b", "single-serving": r"single[-\s]serving",

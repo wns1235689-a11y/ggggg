@@ -1,6 +1,6 @@
 export const meta = {
   name: 'overseas-panel-us-lite',
-  description: '해외 패널 설문 v1.1 §8 리허설 엔진 lite: 미국 페르소나 × 영문 문항 Q1~Q10(§2-1 그대로) VS 분포 + 자유응답(진단 전용·판정 없음)',
+  description: '해외 패널 설문 v1.2(tamarind 괄호 풀이) §8 리허설 엔진 lite: 미국 페르소나 × 영문 문항 Q1~Q10(§2-1 그대로) VS 분포 + 자유응답(진단 전용·판정 없음)',
   phases: [{ title: 'USLITE', detail: '한 페르소나=한 에이전트, 10명 분포 + 본인 자유응답' }],
 }
 const D = (n) => ({ type: 'array', items: { type: 'integer', minimum: 0 }, minItems: n, maxItems: n })
@@ -49,7 +49,7 @@ Q4_dist — In the last 12 months, have you bought a frozen or ready-to-eat Thai
 Q4a_text — (only if anyone in Q4 answered Yes) Which brand or store was it, and how was it? One short sentence as one of those buyers would write it; otherwise an empty string.
 
 ━━ Part 2 (product idea shown here for the first time) ━━
-Q5 — Please read this product idea: "A single-serving frozen pad thai you heat in the microwave for 5 minutes. Instead of tamarind, the sauce uses Korean green plum syrup (maesil), and there is no cilantro, so the flavor is milder and easier for people who find Thai dishes too strong, or who are trying pad thai for the first time."
+Q5 — Please read this product idea: "A single-serving frozen pad thai you heat in the microwave for 5 minutes. Instead of tamarind (the sour fruit paste normally used in pad thai), the sauce uses Korean green plum syrup (maesil), and there is no cilantro, so the flavor is milder and easier for people who find Thai dishes too strong, or who are trying pad thai for the first time."
 Q5_reading — First, in one or two sentences and in your own words as this person, what do you understand this product to be?
 Q5_unclear_terms — List any words or phrases in that description that you, as this person, would not know or would find confusing (for example an ingredient you have never heard of). Empty list if everything is clear to you.
 Q5_dist — How interested would you be in trying it? [1 Not at all interested / 2 / 3 / 4 / 5 Very interested]
