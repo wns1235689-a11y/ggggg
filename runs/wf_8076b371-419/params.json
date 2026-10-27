@@ -1,0 +1,20 @@
+{
+ "run_id": "wf_8076b371-419",
+ "journal_file": "journal.jsonl",
+ "journal_mb": 0.057,
+ "gzipped": false,
+ "pool_source": "/home/user/ggggg/runs/uspool_80928493",
+ "pool_files": [
+  "run_cfg.json",
+  "pool_meta.json",
+  "prof.json"
+ ],
+ "params": {
+  "script": "wf_us_lite.js",
+  "pool_id": "uspool_80928493",
+  "effort": "medium",
+  "dry_run": false,
+  "N": 50,
+  "session_id": "0095003e-0d7e-4d8a-afda-c592a7eb73bc"
+ }
+}
