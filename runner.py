@@ -3,8 +3,8 @@
 """Phase 1 러너(SPEC §4) — Claude Code 서브프로세스로 Workflow 실행.
 
 계약:
-  입력: --script {wf_vs_v23.js|wf_v23_multi.js} --pool-id <id> [--effort medium]
-        [--dry-run] [--n-limit N] [--confirm-large] [--timeout S]
+  입력: --script {wf_vs_v23.js|wf_v23_multi.js|wf_us_lite.js} --pool-id <id> [--effort medium]
+        [--dry-run] [--n-limit N] [--confirm-large] [--timeout S] [--launch-timeout S] [--model M]
   동작: 풀 로드 → 비용 가드 → personas 베이크 임시 wf 생성(원본 불변) →
         claude -p로 Workflow 실행 → run_id 파싱 → nested 저널 완료 폴링 →
         persist_run 영속화(runs/<run_id>/)
@@ -28,7 +28,7 @@ import uuid
 import harness_paths as H
 
 REPO = os.path.dirname(os.path.abspath(__file__))
-ALLOWED_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js"}
+ALLOWED_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js", "wf_us_lite.js"}
 PER_PERSONA_TOKENS = 24000   # 관측 기반 대략치(medium 1.16M/49≈24k) — 예상 규모 표시용
 DRY_RUN_CAP = 2
 LARGE_N = 50
@@ -67,7 +67,7 @@ def make_temp_wf(script, personas):
     return path
 
 
-def launch(temp_wf, sid, orig_script, log):
+def launch(temp_wf, sid, orig_script, log, launch_timeout=300, model=None):
     """claude -p로 Workflow 실행(격리 세션 sid). root에서 막히는 skip-permissions 대신
     --permission-mode dontAsk. 반환은 (rc, 출력) — run_id는 저널 디렉토리에서 발견.
 
@@ -86,9 +86,11 @@ def launch(temp_wf, sid, orig_script, log):
     cmd = ["claude", "-p", prompt, "--session-id", sid,
            "--output-format", "json", "--permission-mode", "dontAsk",
            "--allowedTools", "Read,Workflow"]
+    if model:
+        cmd += ["--model", model]          # 중첩 세션 모델(워크플로 에이전트가 상속). 기록은 채팅에만, params.json엔 미기재.
     log.append(f"[launch] claude -p --session-id {sid} --permission-mode dontAsk --allowedTools Read,Workflow ...")
     try:
-        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=300)
+        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=launch_timeout)
     except subprocess.TimeoutExpired as e:
         return -1, f"[launch timeout] {e}"
     return proc.returncode, (proc.stdout or "") + "\n" + (proc.stderr or "")
@@ -150,6 +152,9 @@ def main():
     ap.add_argument("--n-limit", type=int, default=None)
     ap.add_argument("--confirm-large", action="store_true", help="N>50 실행 확인")
     ap.add_argument("--timeout", type=int, default=None)
+    ap.add_argument("--launch-timeout", type=int, default=300,
+                    help="claude -p 서브프로세스 상한(초). N이 크면 Workflow 완료까지 걸리므로 상향(예: 3600)")
+    ap.add_argument("--model", default=None, help="중첩 claude 세션 모델(미지정 시 CLI 기본값). 에이전트가 상속")
     a = ap.parse_args()
     log = []
 
@@ -176,7 +181,7 @@ def main():
     jbase = nested_journal_base(sid)
     log.append(f"[wf] 임시 베이크 wf={temp_wf}, session_id={sid}")
 
-    rc, out = launch(temp_wf, sid, a.script, log)
+    rc, out = launch(temp_wf, sid, a.script, log, a.launch_timeout, a.model)
     run_id = discover_run_id(jbase, out, 30, log)
     log.append(f"[launch] rc={rc}, run_id={run_id}")
     if not run_id:

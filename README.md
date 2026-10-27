@@ -35,3 +35,16 @@ run.py            오케스트레이터
 
 ## 핵심 원칙
 시뮬레이션은 **'보정되지 않은 방향성 사전분포 + 설계리스크 탐지기'**이며, 파일럿 실측이 도착해야 '보정된 예측'으로 도약한다. **게이트 B와 §3 잠금 판정은 시뮬레이션으로 변경하지 않는다.**
+
+## 해외 패널 리허설 엔진 lite (해외 패널 설문 v1.1 §8)
+미국 페르소나 × 영문 문항 Q1~Q10(§2-1 그대로)을 같은 엔진(VS 분포 + 자유응답)으로 돌려 **문항 함정만 진단**한다. 판정 없음, 엔진 수치는 PT 어디에도 쓰지 않는다.
+
+```
+export HARNESS_SP=<스크래치 경로>                      # 풀 사본 위치(없으면 기본 세션 경로)
+python3 build_us_pool.py --n 50 [--seed S]            # runs/uspool_<seed>/ (5축 사전분포: 태국음식 빈도·고수 기피·집요리·가격민감·한식 친숙)
+python3 runner.py --script wf_us_lite.js --pool-id uspool_<seed> --dry-run          # N=2 스모크
+python3 runner.py --script wf_us_lite.js --pool-id uspool_<seed> \
+        --timeout 5400 --launch-timeout 5400 [--model <중첩 세션 모델>]            # N≤50 (51~100은 --confirm-large)
+HARNESS_JOURNAL_BASE=/nonexistent python3 us_lite_diagnose.py <run_id>              # runs/<run_id>/us_lite_diagnose.md
+```
+진단 ①~⑥(어휘 이해·Q3 'A little' 쏠림·Q2a Other·Q6 바닥천장·Q3→Q5 전사·Q7 에코)과 고치는 임계는 `us_lite_diagnose.py`의 `THRESH`에 사전 고정.

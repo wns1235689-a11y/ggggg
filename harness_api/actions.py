@@ -14,8 +14,8 @@ from . import REPO_ROOT
 import harness_paths as H
 
 BUILD = {"single": "build_fresh_pool.py", "multipool": "build_multipool.py", "sweep": "build_sweep.py"}
-RUN_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js"}
-POOL_PREFIXES = ("pool_", "multipool_", "sweep_")
+RUN_SCRIPTS = {"wf_vs_v23.js", "wf_v23_multi.js", "wf_us_lite.js"}
+POOL_PREFIXES = ("pool_", "multipool_", "sweep_", "uspool_")
 
 JOBS_DIR = os.path.join(H.RUNS_DIR, "_jobs")
 SP_SCOPE = os.path.join(H.RUNS_DIR, "_sp")   # 풀 생성 SP 사본 → 실 스크래치패드 대신 여기(격리)
